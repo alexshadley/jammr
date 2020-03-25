@@ -1,29 +1,18 @@
+import * as Tone from 'tone';
 import { Elm } from './Main.elm';
 
-const context = new AudioContext()
-const osc = context.createOscillator()
-const amp = context.createGain()
-
-osc.connect(amp)
-amp.connect(context.destination)
-
-amp.gain.value = 0
-osc.start()
+var synth = new Tone.PolySynth().toMaster();
 
 const app = Elm.Main.init({
     node: document.querySelector('main')
 })
 
-app.ports.play.subscribe(freq => {
-    if (context.state !== 'running') {
-        context.resume()
-    }
-    osc.frequency.value = freq
-    amp.gain.linearRampToValueAtTime(0.1, context.currentTime + 0.05)
+app.ports.playNotes.subscribe(noteInstructions => {
+    noteInstructions.map(inst => playNote(inst['frequency'], inst['start'], inst['duration']));
 })
 
-app.ports.stop.subscribe(() => {
-    amp.gain.linearRampToValueAtTime(0.0, context.currentTime + 0.05)
-})
+function playNote(freq, start, duration) {
+    synth.triggerAttackRelease(freq, duration, '+' + start)
+}
 
 
