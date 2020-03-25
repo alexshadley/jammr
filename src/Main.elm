@@ -72,7 +72,7 @@ view model =
   in
   layout [] <| column [ centerX, padding 50, spacing 50 ]
     [ Input.button [onClick PlayTrack, centerX] {onPress = Just PlayTrack, label = text "Play Track"}
-    , pianoRoll model.track
+    , pianoRoll AddNote model.track
     ]
 
 overlay : Track -> List (Element.Attribute Msg)
