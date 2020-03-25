@@ -13,11 +13,8 @@ import Element.Events exposing (..)
 import Element.Font as Font
 import Element.Input as Input
 
-import Canvas
-import Canvas.Settings as Settings
-import Color
-
 import Track exposing (..)
+import PianoRoll exposing (pianoRoll)
 
 
 ---- MODEL ----
@@ -75,8 +72,7 @@ view model =
   in
   layout [] <| column [ centerX, padding 50, spacing 50 ]
     [ Input.button [onClick PlayTrack, centerX] {onPress = Just PlayTrack, label = text "Play Track"}
-    , Element.html <| Canvas.toHtml (1000, 800) []
-      [ Canvas.shapes [Settings.fill Color.black] [ Canvas.rect (500, 500) 50 50]]
+    , pianoRoll model.track
     ]
 
 overlay : Track -> List (Element.Attribute Msg)
