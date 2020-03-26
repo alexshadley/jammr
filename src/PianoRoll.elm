@@ -1,15 +1,16 @@
 module PianoRoll exposing (pianoRoll)
 
 
-
 import Color
 import Dict
 import Element
 import Html.Events.Extra.Mouse as Mouse
+import Html.Events exposing (onClick)
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
 
 
+import Msg exposing (..)
 import Track exposing (..)
 
 rollHeight = 800
@@ -19,6 +20,7 @@ labelWidth = 50
 beatCount = 16
 topNote = 60
 pitchCount = 24
+subdivisions = 4
 
 laneHeight = rollHeight / pitchCount
 cellWidth = rollWidth / beatCount
@@ -26,39 +28,39 @@ cellWidth = rollWidth / beatCount
 -- for my sanity
 px = String.fromInt
 
-pianoRoll : (Note -> msg) -> Track -> Element.Element msg
-pianoRoll addNoteCmd track =
+pianoRoll : Track -> Element.Element msg
+pianoRoll track =
   Element.html <|
     svg 
       [ width (px rollWidth)
       , height (px rollHeight)
-      , viewBox ("0 0 " ++ (px rollWidth) ++ " " ++ (px rollHeight))
-      , Mouse.onDown (\event -> addNoteCmd ( addNote event ))
+      , viewBox ("-50 0 " ++ (px rollWidth) ++ " " ++ (px rollHeight))
       ]
-      ( pitchLanes )
+      [pitchLanes, dividers, rollNotes track]
 
-addNote : Mouse.Event -> Note
-addNote event =
-  let
-    (offX, offY) = event.offsetPos
-  in
-    {pitch = round (offX / 30), start = 0, duration = 1}
 
-rollNotes : Track -> Svg msg
+rollNotes : Track -> Svg Msg
 rollNotes track =
   let
     notes = Dict.toList track.notes
   in
-    g [color "green"] [List.map rollNote notes]
+    g [color "green"] (List.map rollNote notes)
 
-rollNote : (Int, Note) -> Svg msg
+rollNote : (Int, Note) -> Svg Msg
 rollNote (id, note) =
   let
-    x = note.start * cellWidth
-    y = (topNote - note.pitch) * laneHeight
-    width = note.duration * cellWidth
+    xVal = note.start * cellWidth
+    yVal = toFloat (topNote - note.pitch) * laneHeight
+    widthVal = note.duration * cellWidth
   in
-    rect (x, y) width laneHeight
+    rect 
+      [ x (String.fromFloat xVal)
+      , y (String.fromFloat yVal)
+      , width (String.fromFloat widthVal)
+      , height (String.fromFloat laneHeight)
+      , fill "currentColor"
+      , onClick (RemoveNote id)
+      ] []
 
 splitAlternating : List a -> (List a, List a)
 splitAlternating xs =
@@ -69,34 +71,74 @@ splitAlternating xs =
   in
     (left, right)
     
-pitchLanes : List (Svg msg)
+pitchLanes : Svg msg
 pitchLanes = 
   let
-    positions = List.range 0 pitchCount |> List.map (\x -> toFloat x * laneHeight)
-    lanes = List.map pitchLane positions
+    pitches = List.range (topNote - pitchCount) topNote
+    lanes = List.map pitchRow pitches
     (white, gray) = splitAlternating lanes
   in
-    [ g [ color "white" ] white
-    , g [ color "lightgray" ] gray
+    g []
+      [ g [ color "white" ] white
+      , g [ color "lightgray" ] gray
+      ]
+
+pitchRow : Int -> Svg msg
+pitchRow pitch =
+  g []
+    [ pitchLane pitch
+    , pitchLabel pitch
     ]
 
-pitchLane : Float -> Svg msg
-pitchLane yVal =
-  rect 
-    [ x (String.fromInt 0)
-    , y (String.fromFloat yVal)
-    , width (String.fromInt rollWidth)
-    , height (String.fromFloat laneHeight)
-    , fill "currentColor"
-    ] []
+pitchLabel : Int -> Svg msg
+pitchLabel pitch =
+  let
+    yVal = toFloat (topNote - pitch) * laneHeight
+  in
+    text_
+      [ x (String.fromInt -50)
+      , y (String.fromFloat yVal)
+      , fill "black"
+      ] [ text (pitchToString pitch) ]
 
-{-dividers : Renderable
+pitchLane : Int -> Svg Msg
+pitchLane pitch =
+  let
+    yVal = toFloat (topNote - pitch) * laneHeight
+  in
+    rect 
+      [ x (String.fromInt 0)
+      , y (String.fromFloat yVal)
+      , width (String.fromInt rollWidth)
+      , height (String.fromFloat laneHeight)
+      , fill "currentColor"
+      , Mouse.onDown (\event -> StartDrawing pitch (Tuple.first event.offsetPos) )
+      ] []
+
+{-addNote : Mouse.Event -> Int -> Note
+addNote event pitch =
+  let
+    (offX, _) = event.offsetPos
+    bin = truncate <| offX / ( rollWidth / ( beatCount * subdivisions ) )
+  in
+    { pitch = pitch
+    , start = toFloat bin / subdivisions
+    , duration = 1
+    }-}
+
+dividers : Svg Msg
 dividers = 
   let
-    positions = List.range 1 beatCount |> List.map (\x -> x * 100)
+    positions = List.range 1 beatCount |> List.map (\x -> toFloat x * (rollWidth / beatCount))
   in
-    shapes [fill Color.gray] (List.map divider positions)
+    g [color "gray"] (List.map divider positions)
 
-divider : Int -> Shape
-divider x =
-  rect (toFloat x, 0) 2 rollHeight-}
+divider : Float -> Svg Msg
+divider xVal =
+  rect 
+    [x (String.fromFloat xVal)
+    , y (String.fromFloat 0)
+    , width (String.fromFloat 2)
+    , height (String.fromInt rollHeight)
+    , fill "currentColor"
+    ] []

@@ -1,7 +1,7 @@
 import * as Tone from 'tone';
 import { Elm } from './Main.elm';
 
-var synth = new Tone.PolySynth().toMaster();
+var synth = new Tone.PolySynth(8).toMaster();
 
 const app = Elm.Main.init({
     node: document.querySelector('main')

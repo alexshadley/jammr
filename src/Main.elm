@@ -13,6 +13,7 @@ import Element.Events exposing (..)
 import Element.Font as Font
 import Element.Input as Input
 
+import Msg exposing (..)
 import Track exposing (..)
 import PianoRoll exposing (pianoRoll)
 
@@ -21,7 +22,9 @@ import PianoRoll exposing (pianoRoll)
 
 
 type alias Model =
-  { track : Track }
+  { track : Track 
+  , currentNoteX : Maybe Float -- x pos of note currently being drawn
+  }
 
 
 init : ( Model, Cmd Msg )
@@ -31,12 +34,6 @@ init =
 
 
 ---- UPDATE ----
-
-
-type Msg
-    = PlayTrack
-    | AddNote Note
-    | RemoveNote Int
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -72,7 +69,7 @@ view model =
   in
   layout [] <| column [ centerX, padding 50, spacing 50 ]
     [ Input.button [onClick PlayTrack, centerX] {onPress = Just PlayTrack, label = text "Play Track"}
-    , pianoRoll AddNote model.track
+    , pianoRoll AddNote RemoveNote model.track
     ]
 
 overlay : Track -> List (Element.Attribute Msg)
