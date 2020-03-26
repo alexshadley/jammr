@@ -1,4 +1,4 @@
-module PianoRoll exposing (pianoRoll)
+module PianoRoll exposing (pianoRoll, calcStartAndDuration)
 
 
 import Color
@@ -11,6 +11,7 @@ import Svg.Attributes exposing (..)
 
 
 import Msg exposing (..)
+import Model exposing (..)
 import Track exposing (..)
 
 rollHeight = 800
@@ -25,19 +26,61 @@ subdivisions = 4
 laneHeight = rollHeight / pitchCount
 cellWidth = rollWidth / beatCount
 
+
+{-| Returns (start, duration) from the start and end of a note drawing
+-}
+calcStartAndDuration : Float -> Float -> (Float, Float)
+calcStartAndDuration start end =
+  let
+    startBin = truncate <| start / ( rollWidth / ( beatCount * subdivisions ) )
+    startBeat = toFloat startBin / subdivisions
+    endBin = truncate <| end / ( rollWidth / ( beatCount * subdivisions ) )
+    endBeat = toFloat endBin / subdivisions
+  in
+    if endBin < startBin then
+      (startBeat, 1)
+    else
+      if startBin == endBin then
+        (startBeat, 1)
+      else
+        (startBeat, endBeat - startBeat)
+    
+
 -- for my sanity
 px = String.fromInt
 
-pianoRoll : Track -> Element.Element msg
-pianoRoll track =
+pianoRoll : Model -> Element.Element Msg
+pianoRoll model =
   Element.html <|
     svg 
       [ width (px rollWidth)
       , height (px rollHeight)
-      , viewBox ("-50 0 " ++ (px rollWidth) ++ " " ++ (px rollHeight))
+      , viewBox ("-" ++ (px labelWidth) ++ " 0 " ++ (px rollWidth) ++ " " ++ (px rollHeight))
       ]
-      [pitchLanes, dividers, rollNotes track]
+      [pitchLanes, dividers, rollNotes model.track, currentNote model.currentNote]
 
+currentNote : Maybe (Int, Float, Float) -> Svg Msg
+currentNote note =
+  case note of
+    Just (pitch, xStart, xCur) ->
+      let
+        (start, duration) = calcStartAndDuration xStart xCur
+        xVal = start * cellWidth
+        yVal = toFloat (topNote - pitch) * laneHeight
+        widthVal = duration * cellWidth
+      in
+        rect 
+          [ x (String.fromFloat xVal)
+          , y (String.fromFloat yVal)
+          , width (String.fromFloat widthVal)
+          , height (String.fromFloat laneHeight)
+          , fill "green"
+          , Mouse.onMove (\event -> MoveDrawingOnNote (Tuple.first event.offsetPos) )
+          , Mouse.onUp (\event -> EndDrawingOnNote (Tuple.first event.offsetPos) )
+          ] []
+
+    Nothing ->
+      g [] []
 
 rollNotes : Track -> Svg Msg
 rollNotes track =
@@ -71,19 +114,20 @@ splitAlternating xs =
   in
     (left, right)
     
-pitchLanes : Svg msg
+pitchLanes : Svg Msg
 pitchLanes = 
   let
     pitches = List.range (topNote - pitchCount) topNote
     lanes = List.map pitchRow pitches
     (white, gray) = splitAlternating lanes
+
   in
     g []
       [ g [ color "white" ] white
       , g [ color "lightgray" ] gray
       ]
 
-pitchRow : Int -> Svg msg
+pitchRow : Int -> Svg Msg
 pitchRow pitch =
   g []
     [ pitchLane pitch
@@ -93,7 +137,7 @@ pitchRow pitch =
 pitchLabel : Int -> Svg msg
 pitchLabel pitch =
   let
-    yVal = toFloat (topNote - pitch) * laneHeight
+    yVal = -10 + toFloat (topNote - pitch) * laneHeight
   in
     text_
       [ x (String.fromInt -50)
@@ -113,6 +157,8 @@ pitchLane pitch =
       , height (String.fromFloat laneHeight)
       , fill "currentColor"
       , Mouse.onDown (\event -> StartDrawing pitch (Tuple.first event.offsetPos) )
+      , Mouse.onMove (\event -> MoveDrawing (Tuple.first event.offsetPos) )
+      , Mouse.onUp (\event -> EndDrawing (Tuple.first event.offsetPos) )
       ] []
 
 {-addNote : Mouse.Event -> Int -> Note

@@ -14,22 +14,19 @@ import Element.Font as Font
 import Element.Input as Input
 
 import Msg exposing (..)
+import Model exposing (..)
 import Track exposing (..)
-import PianoRoll exposing (pianoRoll)
+import PianoRoll
 
 
 ---- MODEL ----
 
 
-type alias Model =
-  { track : Track 
-  , currentNoteX : Maybe Float -- x pos of note currently being drawn
-  }
-
-
 init : ( Model, Cmd Msg )
 init =
-    ( { track = Track.empty } , Cmd.none )
+    ( { track = Track.empty
+      , currentNote = Nothing
+    } , Cmd.none )
 
 
 
@@ -42,11 +39,41 @@ update msg model =
     PlayTrack ->
       ( model, playNotes (generateInstructions 120 model.track ) )
 
-    AddNote note ->
-      ( {model | track = Track.addNote note model.track}, Cmd.none )
-
     RemoveNote id ->
-      ( {model | track = Track.removeNote id model.track}, Cmd.none )
+      ( { model | track = Track.removeNote id model.track}, Cmd.none )
+    
+    StartDrawing pitch x ->
+      ( { model | currentNote = Just (pitch, x, x) }, Cmd.none)
+    
+    MoveDrawing xCur ->
+      ( { model | currentNote = Maybe.map (\(p, x, _) -> (p, x, xCur)) model.currentNote }, Cmd.none)
+    
+    EndDrawing xFinal ->
+      case model.currentNote of
+        Just (pitch, x, _) ->
+          let
+            (newStart, newDuration) = PianoRoll.calcStartAndDuration x xFinal
+            newNote = { pitch = pitch, start = newStart, duration = newDuration }
+          in
+            ( { model | currentNote = Nothing, track = Track.addNote newNote model.track}, Cmd.none)
+        
+        Nothing ->
+          ( model, Cmd.none)
+
+    MoveDrawingOnNote xCur ->
+      ( { model | currentNote = Maybe.map (\(p, x, _) -> (p, x, x + xCur)) model.currentNote }, Cmd.none)
+
+    EndDrawingOnNote xFinal ->
+      case model.currentNote of
+        Just (pitch, x, _) ->
+          let
+            (newStart, newDuration) = PianoRoll.calcStartAndDuration x (x + xFinal)
+            newNote = { pitch = pitch, start = newStart, duration = newDuration }
+          in
+            ( { model | currentNote = Nothing, track = Track.addNote newNote model.track}, Cmd.none)
+        
+        Nothing ->
+          ( model, Cmd.none)
 
 
 ---- VIEW ----
@@ -69,10 +96,10 @@ view model =
   in
   layout [] <| column [ centerX, padding 50, spacing 50 ]
     [ Input.button [onClick PlayTrack, centerX] {onPress = Just PlayTrack, label = text "Play Track"}
-    , pianoRoll AddNote RemoveNote model.track
+    , PianoRoll.pianoRoll model
     ]
 
-overlay : Track -> List (Element.Attribute Msg)
+{-overlay : Track -> List (Element.Attribute Msg)
 overlay track =
   rollNotes track --++ rollDividers constBeatCount
 
@@ -140,7 +167,7 @@ noteCell note beat =
     [ onClick (AddNote {pitch = note, start = toFloat beat, duration = 1.0})
     , width (px 60)
     , height fill
-    ] []
+    ] []-}
 
 
 ---- PROGRAM ----
