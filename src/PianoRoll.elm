@@ -24,22 +24,29 @@ pitchCount = 24
 laneHeight = rollHeight / pitchCount
 cellWidth = rollWidth / beatCount
 
+-- for my sanity
+px = String.fromInt
+
 
 pianoRoll : (Note -> msg) -> Track -> Element.Element msg
 pianoRoll addNoteCmd track =
   Element.html <|
-    Canvas.toHtml (rollWidth, rollHeight) 
-      [ Mouse.onDown (\event -> addNoteCmd ( addNote event )) ]
-      ( pitchLanes ++ [ dividers ] )
+    svg 
+      [ width (px rollWidth)
+      , height (px rollHeight)
+      , viewBox ("0 0 " ++ (px rollWidth) ++ " " ++ (px rollHeight))
+      --, Mouse.onDown (\event -> addNoteCmd ( addNote event ))
+      ]
+      ( pitchLanes )
 
-addNote : Mouse.Event -> Note
+{-addNote : Mouse.Event -> Note
 addNote event =
   let
     (offX, offY) = event.offsetPos
   in
-    {pitch = round (offX / 30), start = 0, duration = 1}
+    {pitch = round (offX / 30), start = 0, duration = 1}-}
 
-rollNotes : Track -> Renderable
+{-rollNotes : Track -> Renderable
 rollNotes track =
   notes
   shapes [fill Color.green] [List.map rollNote track.notes]
@@ -51,7 +58,7 @@ rollNote note =
     y = (topNote - note.pitch) * laneHeight
     width = note.duration * cellWidth
   in
-    rect (x, y) width laneHeight
+    rect (x, y) width laneHeight-}
 
 splitAlternating : List a -> (List a, List a)
 splitAlternating xs =
@@ -62,22 +69,26 @@ splitAlternating xs =
   in
     (left, right)
     
-pitchLanes : List Renderable
+pitchLanes : List (Svg msg)
 pitchLanes = 
   let
     positions = List.range 0 pitchCount |> List.map (\x -> toFloat x * laneHeight)
     lanes = List.map pitchLane positions
     (white, gray) = splitAlternating lanes
   in
-    [ shapes [fill Color.lightGray] gray
-    , shapes [fill Color.white] white
-    ]
+    lanes
 
-pitchLane : Float -> Shape
-pitchLane y =
-  rect (0, y) rollWidth laneHeight
+pitchLane : Float -> Svg msg
+pitchLane yVal =
+  rect 
+    [ x (String.fromInt 0)
+    , y (String.fromFloat yVal)
+    , width (String.fromInt rollWidth)
+    , height (String.fromFloat laneHeight)
+    , color "green"
+    ] []
 
-dividers : Renderable
+{-dividers : Renderable
 dividers = 
   let
     positions = List.range 1 beatCount |> List.map (\x -> x * 100)
@@ -86,4 +97,4 @@ dividers =
 
 divider : Int -> Shape
 divider x =
-  rect (toFloat x, 0) 2 rollHeight
+  rect (toFloat x, 0) 2 rollHeight-}
