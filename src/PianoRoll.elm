@@ -1,14 +1,13 @@
 module PianoRoll exposing (pianoRoll)
 
+
+
+import Color
+import Dict
+import Element
 import Html.Events.Extra.Mouse as Mouse
-
---import Canvas exposing (..)
---import Canvas.Settings exposing (..)
-
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
-import Color
-import Element
 
 
 import Track exposing (..)
@@ -27,7 +26,6 @@ cellWidth = rollWidth / beatCount
 -- for my sanity
 px = String.fromInt
 
-
 pianoRoll : (Note -> msg) -> Track -> Element.Element msg
 pianoRoll addNoteCmd track =
   Element.html <|
@@ -35,30 +33,32 @@ pianoRoll addNoteCmd track =
       [ width (px rollWidth)
       , height (px rollHeight)
       , viewBox ("0 0 " ++ (px rollWidth) ++ " " ++ (px rollHeight))
-      --, Mouse.onDown (\event -> addNoteCmd ( addNote event ))
+      , Mouse.onDown (\event -> addNoteCmd ( addNote event ))
       ]
       ( pitchLanes )
 
-{-addNote : Mouse.Event -> Note
+addNote : Mouse.Event -> Note
 addNote event =
   let
     (offX, offY) = event.offsetPos
   in
-    {pitch = round (offX / 30), start = 0, duration = 1}-}
+    {pitch = round (offX / 30), start = 0, duration = 1}
 
-{-rollNotes : Track -> Renderable
+rollNotes : Track -> Svg msg
 rollNotes track =
-  notes
-  shapes [fill Color.green] [List.map rollNote track.notes]
+  let
+    notes = Dict.toList track.notes
+  in
+    g [color "green"] [List.map rollNote notes]
 
-rollNote : Note -> Shape
-rollNote note =
+rollNote : (Int, Note) -> Svg msg
+rollNote (id, note) =
   let
     x = note.start * cellWidth
     y = (topNote - note.pitch) * laneHeight
     width = note.duration * cellWidth
   in
-    rect (x, y) width laneHeight-}
+    rect (x, y) width laneHeight
 
 splitAlternating : List a -> (List a, List a)
 splitAlternating xs =
@@ -76,7 +76,9 @@ pitchLanes =
     lanes = List.map pitchLane positions
     (white, gray) = splitAlternating lanes
   in
-    lanes
+    [ g [ color "white" ] white
+    , g [ color "lightgray" ] gray
+    ]
 
 pitchLane : Float -> Svg msg
 pitchLane yVal =
@@ -85,7 +87,7 @@ pitchLane yVal =
     , y (String.fromFloat yVal)
     , width (String.fromInt rollWidth)
     , height (String.fromFloat laneHeight)
-    , color "green"
+    , fill "currentColor"
     ] []
 
 {-dividers : Renderable

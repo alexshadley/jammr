@@ -13,9 +13,8 @@ import Element.Events exposing (..)
 import Element.Font as Font
 import Element.Input as Input
 
-
 import Track exposing (..)
-
+import PianoRoll exposing (pianoRoll)
 
 
 ---- MODEL ----
@@ -36,8 +35,6 @@ init =
 
 type Msg
     = PlayTrack
-    | PlayNote Float
-    | Stop
     | AddNote Note
     | RemoveNote Int
 
@@ -46,14 +43,8 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
   case msg of
     PlayTrack ->
-      ( model, playTrack PlayNote Stop 120 model.track )
+      ( model, playNotes (generateInstructions 120 model.track ) )
 
-    PlayNote frq ->
-      ( model, play frq )
-
-    Stop ->
-      ( model, stop () )
-          
     AddNote note ->
       ( {model | track = Track.addNote note model.track}, Cmd.none )
 
@@ -70,24 +61,23 @@ constLabelWidth = 50
 
 constBeatCount = 16
 constTopNote = 60
+constPitchCount = 24
 
 
 view : Model -> Html Msg
 view model =
   let
     pitches =
-      List.range 36 constTopNote |> List.reverse
+      List.range (constTopNote - constPitchCount + 1) constTopNote |> List.reverse
   in
   layout [] <| column [ centerX, padding 50, spacing 50 ]
     [ Input.button [onClick PlayTrack, centerX] {onPress = Just PlayTrack, label = text "Play Track"}
-    , column
-      ( [ width (px constRollWidth) ] ++ overlay model.track )
-      ( List.map noteRow pitches )
+    , pianoRoll AddNote model.track
     ]
 
 overlay : Track -> List (Element.Attribute Msg)
 overlay track =
-  rollNotes track ++ rollDividers constBeatCount
+  rollNotes track --++ rollDividers constBeatCount
 
 rollNotes : Track -> List (Element.Attribute Msg)
 rollNotes track =
@@ -121,7 +111,7 @@ rollDividers n =
 divider : Int -> Element Msg
 divider x =
   el [paddingEach {left = x, top = 0, right = 0, bottom = 0}]
-    ( el [width (px 2), height fill, Background.color <| rgb255 100 100 100] none )
+    ( el [width (px 2), height (px <| constLaneHeight * constPitchCount), Background.color <| rgb255 100 100 100] none )
 
 noteRow : Int -> Element Msg
 noteRow note =
@@ -144,7 +134,6 @@ noteLane note =
     noteCells =
       List.range 0 (constBeatCount - 1)
         |> List.map (noteCell note)
-        |> List.intersperse noteSpacer
   in
     row [height fill, width fill, Background.color bgColor] noteCells
 
@@ -156,19 +145,14 @@ noteCell note beat =
     , height fill
     ] []
 
-noteSpacer : Element Msg
-noteSpacer =
-  column [width (px 2), height fill, Background.color <| rgb255 100 100 100] []
-
-
 
 ---- PROGRAM ----
 
 
-port play : Float -> Cmd msg
-
-
-port stop : () -> Cmd msg
+{-| Tells JS to play a tone with the specified frequency, start time and
+duration. Note that times are in seconds, not beats as with `Note`
+-}
+port playNotes : List NoteInstruction -> Cmd msg
 
 
 main : Program () Model Msg

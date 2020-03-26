@@ -1,4 +1,4 @@
-module Track exposing (Note, Track, playTrack, empty, addNote, getNote, removeNote, pitchToString)
+module Track exposing (Note, NoteInstruction, Track, empty, addNote, getNote, removeNote, pitchToString, generateInstructions)
 
 import Dict exposing (Dict)
 import Process
@@ -19,6 +19,14 @@ a4Frq = 440
 
 type alias Pitch =
   ( Letter, Int )-}
+
+{-| usable by JS to play a note
+-}
+type alias NoteInstruction =
+  { frequency: Float
+  , start : Float
+  , duration : Float
+  }
 
 type alias Note =
   { pitch : Int
@@ -127,10 +135,29 @@ Note that we pass in the constructors for play and stop commands, that way we
 don't have to import them. There's probably a better way to do this.
 
 -}
-playTrack : (Float -> msg) -> msg -> Int -> Track -> Cmd msg
+{-playTrack : (Float -> msg) -> msg -> Int -> Track -> Cmd msg
 playTrack playCmd stopCmd tempo track =
   track.notes
     |> Dict.toList 
     |> List.map Tuple.second
     |> List.map (playNote playCmd stopCmd tempo)
-    |> Cmd.batch
+    |> Cmd.batch-}
+
+generateNote : Float -> Note -> NoteInstruction
+generateNote tempo note =
+  let
+    secPerBeat =
+      (60 / tempo)
+  in
+    { frequency = pitchFrq note.pitch
+    , start     = note.start * secPerBeat
+    , duration  = note.duration * secPerBeat
+    }
+
+
+generateInstructions : Float -> Track -> List NoteInstruction
+generateInstructions tempo track =
+  track.notes
+    |> Dict.toList 
+    |> List.map Tuple.second
+    |> List.map (generateNote tempo)
