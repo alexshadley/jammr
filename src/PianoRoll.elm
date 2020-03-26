@@ -2,8 +2,11 @@ module PianoRoll exposing (pianoRoll)
 
 import Html.Events.Extra.Mouse as Mouse
 
-import Canvas exposing (..)
-import Canvas.Settings exposing (..)
+--import Canvas exposing (..)
+--import Canvas.Settings exposing (..)
+
+import Svg exposing (..)
+import Svg.Attributes exposing (..)
 import Color
 import Element
 
@@ -37,7 +40,7 @@ addNote event =
     {pitch = round (offX / 30), start = 0, duration = 1}
 
 rollNotes : Track -> Renderable
-rollNote track =
+rollNotes track =
   notes
   shapes [fill Color.green] [List.map rollNote track.notes]
 
