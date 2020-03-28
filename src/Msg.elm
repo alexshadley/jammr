@@ -5,9 +5,11 @@ certainly a better way to do this
 -}
 
 import Track exposing (..)
+import User exposing (User)
 
 type Msg
     = UsernameUpdate String
+    | SubmitUser
     | PlayTrack
     | RemoveNote Int
     | StartDrawing Int Float
@@ -22,3 +24,5 @@ type Msg
     | SetNotesFromServer (List (Int, Note))
     | AddNoteFromServer (Maybe (Int, Note))
     | RemoveNoteFromServer (Maybe Int)
+    | UserRegisteredFromServer (Maybe User)
+    | SetUsersFromServer (List User)

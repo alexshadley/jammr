@@ -13,6 +13,7 @@ import Svg.Attributes exposing (..)
 import Msg exposing (..)
 import Model exposing (..)
 import Track exposing (..)
+import User exposing (User)
 
 rollHeight = 800
 rollWidth = 1000
@@ -25,6 +26,12 @@ subdivisions = 4
 
 laneHeight = rollHeight / pitchCount
 cellWidth = rollWidth / beatCount
+
+
+getUserColor : User -> String
+getUserColor user =
+  case user.color of
+    (r, g, b) -> (String.fromInt r) ++ " " ++ (String.fromInt g) ++ " " ++ (String.fromInt b)
 
 
 {-| Returns (start, duration) from the start and end of a note drawing
@@ -57,7 +64,7 @@ pianoRoll model =
       , height (px rollHeight)
       , viewBox ("-" ++ (px labelWidth) ++ " 0 " ++ (px rollWidth) ++ " " ++ (px rollHeight))
       ]
-      [pitchLanes, dividers, rollNotes model.track, currentNote model.currentNote]
+      [pitchLanes, dividers, rollNotes model, currentNote model.currentNote]
 
 currentNote : Maybe (Int, Float, Float) -> Svg Msg
 currentNote note =
@@ -82,15 +89,15 @@ currentNote note =
     Nothing ->
       g [] []
 
-rollNotes : Track -> Svg Msg
-rollNotes track =
+rollNotes : Model -> Svg Msg
+rollNotes model =
   let
-    notes = Dict.toList track.notes
+    notes = Dict.toList model.track.notes
   in
-    g [color "green"] (List.map rollNote notes)
+    g [] (List.map (rollNote model) notes)
 
-rollNote : (Int, Note) -> Svg Msg
-rollNote (id, note) =
+rollNote : Model -> (Int, Note) -> Svg Msg
+rollNote model (id, note) =
   let
     xVal = note.start * cellWidth
     yVal = toFloat (topNote - note.pitch) * laneHeight
@@ -160,17 +167,6 @@ pitchLane pitch =
       , Mouse.onMove (\event -> MoveDrawing (Tuple.first event.offsetPos) )
       , Mouse.onUp (\event -> EndDrawing (Tuple.first event.offsetPos) )
       ] []
-
-{-addNote : Mouse.Event -> Int -> Note
-addNote event pitch =
-  let
-    (offX, _) = event.offsetPos
-    bin = truncate <| offX / ( rollWidth / ( beatCount * subdivisions ) )
-  in
-    { pitch = pitch
-    , start = toFloat bin / subdivisions
-    , duration = 1
-    }-}
 
 dividers : Svg Msg
 dividers = 

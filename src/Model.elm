@@ -9,5 +9,6 @@ type alias Model =
   , currentNote : Maybe (Int, Float, Float)
   -- `Maybe` because the user may not have logged in yet
   , currentUser : Maybe User
+  , users : List User
   , usernameInput : String
   }

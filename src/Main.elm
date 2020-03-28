@@ -3,7 +3,7 @@ port module Main exposing (..)
 import Browser
 import Dict
 import Html exposing (Html)
-import Json.Decode as Decode exposing (Decoder, field, field, float, int)
+import Json.Decode as Decode exposing (Decoder, field, float, int, string)
 import Task
 import Process
 
@@ -29,6 +29,7 @@ init =
     ( { track = Track.empty
       , currentNote = Nothing
       , currentUser = Nothing
+      , users = []
       , usernameInput = ""
     } , Cmd.none )
 
@@ -42,6 +43,9 @@ update msg model =
   case msg of
     UsernameUpdate new ->
       ( {model | usernameInput = new}, Cmd.none)
+    
+    SubmitUser ->
+      ( model, addUser {name = model.usernameInput} )
 
     PlayTrack ->
       ( model, playNotes (generateInstructions 120 model.track ) )
@@ -60,7 +64,7 @@ update msg model =
         Just (pitch, x, _) ->
           let
             (newStart, newDuration) = PianoRoll.calcStartAndDuration x xFinal
-            newNote = { pitch = pitch, start = newStart, duration = newDuration }
+            newNote = { pitch = pitch, start = newStart, duration = newDuration, user = Maybe.map .name model.currentUser}
             (newTrack, newId) = Track.addNote newNote model.track
           in
             ( { model | currentNote = Nothing, track = newTrack}, addNote {id = newId, pitch = newNote.pitch, start = newNote.start, duration = newNote.duration})
@@ -76,7 +80,7 @@ update msg model =
         Just (pitch, x, _) ->
           let
             (newStart, newDuration) = PianoRoll.calcStartAndDuration x (x + xFinal)
-            newNote = { pitch = pitch, start = newStart, duration = newDuration }
+            newNote = { pitch = pitch, start = newStart, duration = newDuration, user = Maybe.map .name model.currentUser}
             (newTrack, newId) = Track.addNote newNote model.track
           in
             ( { model | currentNote = Nothing, track = newTrack}, addNote {id = newId, pitch = newNote.pitch, start = newNote.start, duration = newNote.duration})
@@ -105,7 +109,12 @@ update msg model =
         
         Nothing ->
           (model, Cmd.none)
-      
+
+    SetUsersFromServer users ->
+      ({ model | users = users }, Cmd.none)
+    
+    UserRegisteredFromServer user ->
+      ({ model | currentUser = user}, Cmd.none)
 
 
 ---- VIEW ----
@@ -137,13 +146,16 @@ view model =
           , height fill
           ] ++ overlay
         )
-        ( column
-          [ centerX
-          , padding 50
-          , spacing 50 
-          ]
-          [ Input.button [onClick PlayTrack, centerX] {onPress = Just PlayTrack, label = text "Play Track"}
-          , PianoRoll.pianoRoll model
+        ( row [ width fill, height fill ]
+          [ column
+            [ centerX
+            , padding 50
+            , spacing 50 
+            ]
+            [ Input.button [onClick PlayTrack, centerX] {onPress = Just PlayTrack, label = text "Play Track"}
+            , PianoRoll.pianoRoll model
+            ]
+          , el [ alignRight, alignTop, moveLeft 50, moveDown 100 ] (usersWidget model)
           ]
         )
 
@@ -158,6 +170,7 @@ loginOverlay model =
       [ centerX
       , moveDown 100
       , padding 50
+      , spacing 20
       , Background.color <| rgb255 245 245 245
       , Border.rounded 7
       ] 
@@ -167,18 +180,79 @@ loginOverlay model =
         , placeholder = Nothing
         , label = Input.labelAbove [] (text "Name")
         }
+      , Input.button
+          [ centerX
+          , padding 8
+          , Border.width 1
+          , Border.rounded 7
+          , Border.color <| rgb255 150 150 150
+          ]
+          { onPress = Just SubmitUser
+          , label = (text "Join")
+          }
       ]
     )
+  
+usersWidget : Model -> Element Msg
+usersWidget model =
+  let
+    youRow = case model.currentUser of
+      Just user -> [userRow user]
+      Nothing   -> []
 
+    others = case model.currentUser of
+      Just user -> List.filter (\o -> o.name /= user.name) model.users
+      Nothing   -> model.users
+    
+    othersRows = List.map userRow others
+  in
+    column 
+      [ width (px 160)
+      , Border.width 1
+      , Border.rounded 7
+      , spacing 10
+      , paddingXY 0 10
+      ]
+      ( youRow ++
+        [ row 
+            [ centerX
+            , width (px 100)
+            , height (px 1)
+            , Background.color <| rgb255 0 0 0
+            ]
+            []
+        ] ++
+        othersRows
+      )
+
+userRow : User -> Element Msg
+userRow user =
+  row 
+    [ centerX
+    , centerY
+    , spacing 15
+    ]
+    [ text user.name
+    , el
+      [ Background.color <| User.getColor user
+      , width (px 10)
+      , height (px 10)
+      ] none
+    ]
+ 
 
 ---- PROGRAM ----
 
 port setNotes : (Decode.Value -> msg) -> Sub msg
 port addNoteFromServer : (Decode.Value -> msg) -> Sub msg
 port removeNoteFromServer : (Decode.Value -> msg) -> Sub msg
+port setUsersFromServer : (Decode.Value -> msg) -> Sub msg
+port userRegisteredFromServer : (Decode.Value -> msg) -> Sub msg
 
 port addNote : {id: Int, pitch: Int, start: Float, duration: Float} -> Cmd msg
 port removeNote : {id: Int} -> Cmd msg
+port addUser : {name: String} -> Cmd msg
+port removeUser : {name: String} -> Cmd msg
 
 {-| Tells JS to play a tone with the specified frequency, start time and
 duration. Note that times are in seconds, not beats as with `Note`
@@ -191,6 +265,8 @@ subscriptions _ =
     [ setNotes (decodeNotes >> SetNotesFromServer)
     , addNoteFromServer (decodeNote >> AddNoteFromServer)
     , removeNoteFromServer (decodeDelId >> RemoveNoteFromServer)
+    , setUsersFromServer (decodeUsers >> SetUsersFromServer)
+    , userRegisteredFromServer (decodeUser >> UserRegisteredFromServer)
     ]
 
 decodeDelId : Decode.Value -> Maybe Int
@@ -213,11 +289,39 @@ decodeNote v =
 
 noteDecoder : Decoder (Int, Note)
 noteDecoder =
-  Decode.map4 (\id p s d -> (id, {pitch=p, start=s, duration=d}))
+  Decode.map5 (\id p s d u -> (id, {pitch=p, start=s, duration=d, user=Just u}))
     (field "id" int)
     (field "pitch" int)
     (field "start" float)
     (field "duration" float)
+    (field "user" string)
+
+decodeUsers : Decode.Value -> List User
+decodeUsers v =
+  case Decode.decodeValue (Decode.list userDecoder) v of
+    Ok users -> users
+    Err e -> Debug.log (Decode.errorToString e) []
+
+decodeUser : Decode.Value -> Maybe User
+decodeUser v =
+  case Decode.decodeValue userDecoder v of
+    Ok user -> Just user
+    Err e -> Debug.log (Decode.errorToString e) Nothing
+
+userDecoder : Decoder User
+userDecoder =
+  Decode.map2 (\n c -> {name=n, color=c})
+    (field "name" Decode.string)
+    (field "color" colorDecoder)
+
+colorDecoder : Decoder (Int, Int, Int)
+colorDecoder =
+  Decode.list int
+    |> Decode.andThen 
+      (\c -> case c of
+        (r::g::b::[]) -> Decode.succeed (r, g, b)
+        _             -> Decode.fail "Color was not a triplet of integers"
+      )
 
 
 main : Program () Model Msg

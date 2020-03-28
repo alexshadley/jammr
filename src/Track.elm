@@ -32,6 +32,7 @@ type alias Note =
   { pitch : Int
   , start : Float
   , duration : Float
+  , user : Maybe String
   }
 
 type alias Track = 
