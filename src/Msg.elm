@@ -7,7 +7,8 @@ certainly a better way to do this
 import Track exposing (..)
 
 type Msg
-    = PlayTrack
+    = UsernameUpdate String
+    | PlayTrack
     | RemoveNote Int
     | StartDrawing Int Float
     | MoveDrawing Float
@@ -17,3 +18,7 @@ type Msg
      -}
     | MoveDrawingOnNote Float
     | EndDrawingOnNote Float
+    -- network
+    | SetNotesFromServer (List (Int, Note))
+    | AddNoteFromServer (Maybe (Int, Note))
+    | RemoveNoteFromServer (Maybe Int)

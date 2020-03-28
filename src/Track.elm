@@ -1,4 +1,4 @@
-module Track exposing (Note, NoteInstruction, Track, empty, addNote, getNote, removeNote, pitchToString, generateInstructions)
+module Track exposing (Note, NoteInstruction, Track, empty, addNote, addNoteWithId, getNote, removeNote, pitchToString, generateInstructions)
 
 import Dict exposing (Dict)
 import Process
@@ -46,10 +46,18 @@ empty =
   }
   
 
-addNote : Note -> Track -> Track
+addNote : Note -> Track -> (Track, Int)
 addNote note track =
-  { notes = Dict.insert track.nextId note track.notes
-  , nextId = track.nextId + 1
+  ( { notes = Dict.insert track.nextId note track.notes
+    , nextId = track.nextId + 1
+    }
+  , track.nextId )
+
+
+addNoteWithId : Int -> Note -> Track -> Track
+addNoteWithId id note track =
+  { notes = Dict.insert id note track.notes
+  , nextId = 1 + max id track.nextId
   }
 
   
