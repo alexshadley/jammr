@@ -2,7 +2,13 @@ import * as Tone from 'tone';
 import { Elm } from './Main.elm';
 import io from 'socket.io-client';
 
-var synth = new Tone.PolySynth(8).toMaster();
+var voices = [
+    {oscillator: {type: 'pulse'}},
+    {oscillator: {type: 'triangle'}},
+    {oscillator: {type: 'square'}}
+]
+
+var synths = voices.map(v => new Tone.PolySynth(8, Tone.Synth, v).toMaster());
 
 /*
 ordinarily maintaining state in Elm and JS is a very bad thing to do. I've
@@ -66,11 +72,11 @@ app.ports.addUser.subscribe(user => {
 })
 
 app.ports.playNotes.subscribe(noteInstructions => {
-    noteInstructions.map(inst => playNote(inst['frequency'], inst['start'], inst['duration']));
+    noteInstructions.map(inst => playNote(inst['frequency'], inst['start'], inst['duration'], inst['voice']));
 })
 
-function playNote(freq, start, duration) {
-    synth.triggerAttackRelease(freq, duration, '+' + start)
+function playNote(freq, start, duration, voice) {
+    synths[voice].triggerAttackRelease(freq, duration, '+' + start)
 }
 
 

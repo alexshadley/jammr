@@ -5,20 +5,7 @@ import Process
 import Task
 
 
-{-exampleTrack =
-  empty
-    |> addNote { pitch = ( C, 4 ), start = 0, duration = 1 }
-    |> addNote { pitch = ( D, 4 ), start = 1, duration = 1 }
-    |> addNote { pitch = ( E, 4 ), start = 2, duration = 1 }-}
-
-
 a4Frq = 440
-
-
-{- type Letter = A | AS | B | C | CS | D | DS | E | F | FS | G | GS
-
-type alias Pitch =
-  ( Letter, Int )-}
 
 {-| usable by JS to play a note
 -}
@@ -26,6 +13,7 @@ type alias NoteInstruction =
   { frequency: Float
   , start : Float
   , duration : Float
+  , voice : Int
   }
 
 type alias Note =
@@ -33,6 +21,7 @@ type alias Note =
   , start : Float
   , duration : Float
   , user : Maybe String
+  , voice : Int
   }
 
 type alias Track = 
@@ -161,6 +150,7 @@ generateNote tempo note =
     { frequency = pitchFrq note.pitch
     , start     = note.start * secPerBeat
     , duration  = note.duration * secPerBeat
+    , voice     = note.voice
     }
 
 

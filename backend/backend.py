@@ -13,7 +13,13 @@ notes = {}
 
 @socketio.on('add_note_to_server')
 def add_note(message):
-    notes[message['id']] = {'id': message['id'], 'pitch': message['pitch'], 'start': message['start'], 'duration': message['duration']}
+    notes[message['id']] = {
+        'id': message['id'],
+        'pitch': message['pitch'],
+        'start': message['start'],
+        'duration': message['duration'],
+        'user': message['user'],
+        'voice': message['voice'] }
     emit('add_note_to_client', notes[message['id']], broadcast=True)
 
     print('note added')

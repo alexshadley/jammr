@@ -1,7 +1,6 @@
 module PianoRoll exposing (pianoRoll, calcStartAndDuration)
 
 
-import Color
 import Dict
 import Element
 import Html.Events.Extra.Mouse as Mouse
@@ -15,23 +14,24 @@ import Model exposing (..)
 import Track exposing (..)
 import User exposing (User)
 
-rollHeight = 800
+rollHeight = 350
 rollWidth = 1000
 labelWidth = 50
 
-beatCount = 16
+beatCount = 24
 topNote = 60
-pitchCount = 24
+pitchCount = 12
 subdivisions = 4
 
 laneHeight = rollHeight / pitchCount
 cellWidth = rollWidth / beatCount
 
+defaultColor = "gray"
 
 getUserColor : User -> String
 getUserColor user =
   case user.color of
-    (r, g, b) -> (String.fromInt r) ++ " " ++ (String.fromInt g) ++ " " ++ (String.fromInt b)
+    (r, g, b) -> "rgb(" ++ (String.fromInt r) ++ ", " ++ (String.fromInt g) ++ ", " ++ (String.fromInt b) ++ ")"
 
 
 {-| Returns (start, duration) from the start and end of a note drawing
@@ -41,7 +41,7 @@ calcStartAndDuration start end =
   let
     startBin = truncate <| start / ( rollWidth / ( beatCount * subdivisions ) )
     startBeat = toFloat startBin / subdivisions
-    endBin = truncate <| end / ( rollWidth / ( beatCount * subdivisions ) )
+    endBin = 1 + ( truncate <| end / ( rollWidth / ( beatCount * subdivisions ) ) )
     endBeat = toFloat endBin / subdivisions
   in
     if endBin < startBin then
@@ -56,43 +56,56 @@ calcStartAndDuration start end =
 -- for my sanity
 px = String.fromInt
 
-pianoRoll : Model -> Element.Element Msg
-pianoRoll model =
-  Element.html <|
-    svg 
-      [ width (px rollWidth)
-      , height (px rollHeight)
-      , viewBox ("-" ++ (px labelWidth) ++ " 0 " ++ (px rollWidth) ++ " " ++ (px rollHeight))
-      ]
-      [pitchLanes, dividers, rollNotes model, currentNote model.currentNote]
+pianoRoll : Model -> Int -> Element.Element Msg
+pianoRoll model voice =
+  Element.el [] <| 
+    Element.html <|
+      svg 
+        [ width (px rollWidth)
+        , height (px rollHeight)
+        , viewBox ("-" ++ (px labelWidth) ++ " 0 " ++ (px rollWidth) ++ " " ++ (px rollHeight))
+        ]
+        [pitchLanes voice, dividers, rollNotes model voice, currentNote model voice]
 
-currentNote : Maybe (Int, Float, Float) -> Svg Msg
-currentNote note =
-  case note of
-    Just (pitch, xStart, xCur) ->
-      let
-        (start, duration) = calcStartAndDuration xStart xCur
-        xVal = start * cellWidth
-        yVal = toFloat (topNote - pitch) * laneHeight
-        widthVal = duration * cellWidth
-      in
-        rect 
-          [ x (String.fromFloat xVal)
-          , y (String.fromFloat yVal)
-          , width (String.fromFloat widthVal)
-          , height (String.fromFloat laneHeight)
-          , fill "green"
-          , Mouse.onMove (\event -> MoveDrawingOnNote (Tuple.first event.offsetPos) )
-          , Mouse.onUp (\event -> EndDrawingOnNote (Tuple.first event.offsetPos) )
-          ] []
-
-    Nothing ->
-      g [] []
-
-rollNotes : Model -> Svg Msg
-rollNotes model =
+currentNote : Model -> Int -> Svg Msg
+currentNote model rollVoice =
   let
-    notes = Dict.toList model.track.notes
+    color = case model.currentUser of
+      Just user -> getUserColor user
+      Nothing -> defaultColor
+  in
+    case model.currentNote of
+      Just {voice, pitch, startX, endX} ->
+        case voice == rollVoice of
+          True ->
+            let
+              (start, duration) = calcStartAndDuration startX endX
+              xVal = start * cellWidth
+              yVal = toFloat (topNote - pitch) * laneHeight
+              widthVal = duration * cellWidth
+            in
+              rect 
+                [ x (String.fromFloat xVal)
+                , y (String.fromFloat yVal)
+                , width (String.fromFloat widthVal)
+                , height (String.fromFloat laneHeight)
+                , fill color
+                , Mouse.onMove (\event -> MoveDrawingOnNote (Tuple.first event.offsetPos) )
+                , Mouse.onUp (\event -> EndDrawingOnNote (Tuple.first event.offsetPos) )
+                ] []
+          
+          False ->
+            g [] []
+
+      Nothing ->
+        g [] []
+
+rollNotes : Model -> Int -> Svg Msg
+rollNotes model rollVoice =
+  let
+    notes =
+      Dict.toList model.track.notes
+        |> List.filter (\(_, {voice}) -> voice == rollVoice)
   in
     g [] (List.map (rollNote model) notes)
 
@@ -102,13 +115,22 @@ rollNote model (id, note) =
     xVal = note.start * cellWidth
     yVal = toFloat (topNote - note.pitch) * laneHeight
     widthVal = note.duration * cellWidth
+
+    color = case note.user of
+      Just name ->
+        case Dict.get name model.users of
+          Just user -> getUserColor user
+          Nothing -> defaultColor
+      
+      Nothing -> defaultColor
+
   in
     rect 
       [ x (String.fromFloat xVal)
       , y (String.fromFloat yVal)
       , width (String.fromFloat widthVal)
       , height (String.fromFloat laneHeight)
-      , fill "currentColor"
+      , fill color
       , onClick (RemoveNote id)
       ] []
 
@@ -121,11 +143,11 @@ splitAlternating xs =
   in
     (left, right)
     
-pitchLanes : Svg Msg
-pitchLanes = 
+pitchLanes : Int -> Svg Msg
+pitchLanes voice = 
   let
     pitches = List.range (topNote - pitchCount) topNote
-    lanes = List.map pitchRow pitches
+    lanes = List.map (pitchRow voice) pitches
     (white, gray) = splitAlternating lanes
 
   in
@@ -134,10 +156,10 @@ pitchLanes =
       , g [ color "lightgray" ] gray
       ]
 
-pitchRow : Int -> Svg Msg
-pitchRow pitch =
+pitchRow : Int -> Int -> Svg Msg
+pitchRow voice pitch =
   g []
-    [ pitchLane pitch
+    [ pitchLane voice pitch
     , pitchLabel pitch
     ]
 
@@ -152,8 +174,8 @@ pitchLabel pitch =
       , fill "black"
       ] [ text (pitchToString pitch) ]
 
-pitchLane : Int -> Svg Msg
-pitchLane pitch =
+pitchLane : Int -> Int -> Svg Msg
+pitchLane voice pitch =
   let
     yVal = toFloat (topNote - pitch) * laneHeight
   in
@@ -163,7 +185,7 @@ pitchLane pitch =
       , width (String.fromInt rollWidth)
       , height (String.fromFloat laneHeight)
       , fill "currentColor"
-      , Mouse.onDown (\event -> StartDrawing pitch (Tuple.first event.offsetPos) )
+      , Mouse.onDown (\event -> StartDrawing voice pitch (Tuple.first event.offsetPos) )
       , Mouse.onMove (\event -> MoveDrawing (Tuple.first event.offsetPos) )
       , Mouse.onUp (\event -> EndDrawing (Tuple.first event.offsetPos) )
       ] []

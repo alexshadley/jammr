@@ -29,10 +29,9 @@ init =
     ( { track = Track.empty
       , currentNote = Nothing
       , currentUser = Nothing
-      , users = []
+      , users = Dict.empty
       , usernameInput = ""
     } , Cmd.none )
-
 
 
 ---- UPDATE ----
@@ -53,37 +52,39 @@ update msg model =
     RemoveNote id ->
       ( { model | track = Track.removeNote id model.track}, removeNote {id = id} )
     
-    StartDrawing pitch x ->
-      ( { model | currentNote = Just (pitch, x, x) }, Cmd.none)
+    StartDrawing voice pitch x ->
+      ( { model | currentNote = Just {voice = voice, pitch = pitch, startX = x, endX = x} }, Cmd.none)
     
     MoveDrawing xCur ->
-      ( { model | currentNote = Maybe.map (\(p, x, _) -> (p, x, xCur)) model.currentNote }, Cmd.none)
+      ( { model | currentNote = Maybe.map (\cn -> {cn | endX = xCur}) model.currentNote }, Cmd.none)
     
     EndDrawing xFinal ->
       case model.currentNote of
-        Just (pitch, x, _) ->
+        Just {voice, pitch, startX, endX} ->
           let
-            (newStart, newDuration) = PianoRoll.calcStartAndDuration x xFinal
-            newNote = { pitch = pitch, start = newStart, duration = newDuration, user = Maybe.map .name model.currentUser}
+            (newStart, newDuration) = PianoRoll.calcStartAndDuration startX endX
+            newNote = { pitch = pitch, start = newStart, duration = newDuration, user = Maybe.map .name model.currentUser, voice = voice}
             (newTrack, newId) = Track.addNote newNote model.track
           in
-            ( { model | currentNote = Nothing, track = newTrack}, addNote {id = newId, pitch = newNote.pitch, start = newNote.start, duration = newNote.duration})
+            ( { model | currentNote = Nothing, track = newTrack}
+            , addNote {id = newId, pitch = newNote.pitch, start = newNote.start, duration = newNote.duration, user = newNote.user, voice = newNote.voice} )
         
         Nothing ->
           ( model, Cmd.none)
 
     MoveDrawingOnNote xCur ->
-      ( { model | currentNote = Maybe.map (\(p, x, _) -> (p, x, x + xCur)) model.currentNote }, Cmd.none)
+      ( { model | currentNote = Maybe.map (\cn -> {cn | endX = cn.startX + xCur}) model.currentNote }, Cmd.none)
 
     EndDrawingOnNote xFinal ->
       case model.currentNote of
-        Just (pitch, x, _) ->
+        Just {voice, pitch, startX, endX} ->
           let
-            (newStart, newDuration) = PianoRoll.calcStartAndDuration x (x + xFinal)
-            newNote = { pitch = pitch, start = newStart, duration = newDuration, user = Maybe.map .name model.currentUser}
+            (newStart, newDuration) = PianoRoll.calcStartAndDuration startX (startX + xFinal)
+            newNote = { pitch = pitch, start = newStart, duration = newDuration, user = Maybe.map .name model.currentUser, voice = voice}
             (newTrack, newId) = Track.addNote newNote model.track
           in
-            ( { model | currentNote = Nothing, track = newTrack}, addNote {id = newId, pitch = newNote.pitch, start = newNote.start, duration = newNote.duration})
+            ( { model | currentNote = Nothing, track = newTrack}
+            , addNote {id = newId, pitch = newNote.pitch, start = newNote.start, duration = newNote.duration, user = newNote.user, voice = newNote.voice} )
         
         Nothing ->
           ( model, Cmd.none)
@@ -111,7 +112,14 @@ update msg model =
           (model, Cmd.none)
 
     SetUsersFromServer users ->
-      ({ model | users = users }, Cmd.none)
+      let
+        userDict =
+          users
+            |> List.map (\u -> (u.name, u))
+            |> Dict.fromList
+
+      in
+        ({ model | users = userDict }, Cmd.none)
     
     UserRegisteredFromServer user ->
       ({ model | currentUser = user}, Cmd.none)
@@ -153,7 +161,9 @@ view model =
             , spacing 50 
             ]
             [ Input.button [onClick PlayTrack, centerX] {onPress = Just PlayTrack, label = text "Play Track"}
-            , PianoRoll.pianoRoll model
+            , PianoRoll.pianoRoll model 0
+            , PianoRoll.pianoRoll model 1
+            , PianoRoll.pianoRoll model 2
             ]
           , el [ alignRight, alignTop, moveLeft 50, moveDown 100 ] (usersWidget model)
           ]
@@ -201,8 +211,8 @@ usersWidget model =
       Nothing   -> []
 
     others = case model.currentUser of
-      Just user -> List.filter (\o -> o.name /= user.name) model.users
-      Nothing   -> model.users
+      Just user -> model.users |> Dict.toList |> List.map Tuple.second |> List.filter (\o -> o.name /= user.name)
+      Nothing   -> model.users |> Dict.toList |> List.map Tuple.second
     
     othersRows = List.map userRow others
   in
@@ -249,7 +259,7 @@ port removeNoteFromServer : (Decode.Value -> msg) -> Sub msg
 port setUsersFromServer : (Decode.Value -> msg) -> Sub msg
 port userRegisteredFromServer : (Decode.Value -> msg) -> Sub msg
 
-port addNote : {id: Int, pitch: Int, start: Float, duration: Float} -> Cmd msg
+port addNote : {id: Int, pitch: Int, start: Float, duration: Float, user: Maybe String, voice: Int} -> Cmd msg
 port removeNote : {id: Int} -> Cmd msg
 port addUser : {name: String} -> Cmd msg
 port removeUser : {name: String} -> Cmd msg
@@ -289,12 +299,13 @@ decodeNote v =
 
 noteDecoder : Decoder (Int, Note)
 noteDecoder =
-  Decode.map5 (\id p s d u -> (id, {pitch=p, start=s, duration=d, user=Just u}))
+  Decode.map6 (\id p s d u v -> (id, {pitch=p, start=s, duration=d, user=Just u, voice=v}))
     (field "id" int)
     (field "pitch" int)
     (field "start" float)
     (field "duration" float)
     (field "user" string)
+    (field "voice" int)
 
 decodeUsers : Decode.Value -> List User
 decodeUsers v =

@@ -12,7 +12,7 @@ type Msg
     | SubmitUser
     | PlayTrack
     | RemoveNote Int
-    | StartDrawing Int Float
+    | StartDrawing Int Int Float
     | MoveDrawing Float
     | EndDrawing Float
     {- these hacks are necessary because mouse offset is always calculated
