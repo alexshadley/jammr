@@ -14,16 +14,17 @@ import Model exposing (..)
 import Track exposing (..)
 import User exposing (User)
 
-rollHeight = 350
+--rollHeight = 350
 rollWidth = 1000
 labelWidth = 50
 
 beatCount = 24
-topNote = 60
-pitchCount = 12
+--topNote = 60
+--pitchCount = 12
 subdivisions = 4
 
-laneHeight = rollHeight / pitchCount
+--laneHeight : Params -> Float
+--laneHeight params = rollHeight / (toFloat params.pitches)
 cellWidth = rollWidth / beatCount
 
 defaultColor = "gray"
@@ -51,24 +52,50 @@ calcStartAndDuration start end =
         (startBeat, 1)
       else
         (startBeat, endBeat - startBeat)
-    
 
--- for my sanity
-px = String.fromInt
 
-pianoRoll : Model -> Int -> Element.Element Msg
-pianoRoll model voice =
-  Element.el [] <| 
-    Element.html <|
-      svg 
-        [ width (px rollWidth)
-        , height (px rollHeight)
-        , viewBox ("-" ++ (px labelWidth) ++ " 0 " ++ (px rollWidth) ++ " " ++ (px rollHeight))
-        ]
-        [pitchLanes voice, dividers, rollNotes model voice, currentNote model voice]
 
-currentNote : Model -> Int -> Svg Msg
-currentNote model rollVoice =
+type alias InputParams =
+  { rollHeight: Int
+  , voice: Int
+  , topPitch: Int
+  , pitches: Int
+  }
+
+-- also includes calculated values
+type alias Params =
+  { rollHeight: Int
+  , voice: Int
+  , topPitch: Int
+  , pitches: Int
+  , laneHeight: Float
+  }
+
+calculateParams : InputParams -> Params
+calculateParams input =
+  { rollHeight = input.rollHeight
+  , voice = input.voice
+  , topPitch = input.topPitch
+  , pitches = input.pitches
+  , laneHeight = toFloat input.rollHeight / toFloat input.pitches
+  }
+
+pianoRoll : Model -> InputParams -> Element.Element Msg
+pianoRoll model input =
+  let
+    params = calculateParams input
+  in
+    Element.el [] <| 
+      Element.html <|
+        svg 
+          [ width (String.fromInt rollWidth)
+          , height (String.fromInt params.rollHeight)
+          , viewBox ("-" ++ (String.fromInt labelWidth) ++ " 0 " ++ (String.fromInt rollWidth) ++ " " ++ (String.fromInt params.rollHeight))
+          ]
+          [pitchLanes params, dividers params, rollNotes model params, currentNote model params]
+
+currentNote : Model -> Params -> Svg Msg
+currentNote model params =
   let
     color = case model.currentUser of
       Just user -> getUserColor user
@@ -76,19 +103,19 @@ currentNote model rollVoice =
   in
     case model.currentNote of
       Just {voice, pitch, startX, endX} ->
-        case voice == rollVoice of
+        case voice == params.voice of
           True ->
             let
               (start, duration) = calcStartAndDuration startX endX
               xVal = start * cellWidth
-              yVal = toFloat (topNote - pitch) * laneHeight
+              yVal = toFloat (params.topPitch - pitch) * params.laneHeight
               widthVal = duration * cellWidth
             in
               rect 
                 [ x (String.fromFloat xVal)
                 , y (String.fromFloat yVal)
                 , width (String.fromFloat widthVal)
-                , height (String.fromFloat laneHeight)
+                , height (String.fromFloat params.laneHeight)
                 , fill color
                 , Mouse.onMove (\event -> MoveDrawingOnNote (Tuple.first event.offsetPos) )
                 , Mouse.onUp (\event -> EndDrawingOnNote (Tuple.first event.offsetPos) )
@@ -100,20 +127,20 @@ currentNote model rollVoice =
       Nothing ->
         g [] []
 
-rollNotes : Model -> Int -> Svg Msg
-rollNotes model rollVoice =
+rollNotes : Model -> Params -> Svg Msg
+rollNotes model params =
   let
     notes =
       Dict.toList model.track.notes
-        |> List.filter (\(_, {voice}) -> voice == rollVoice)
+        |> List.filter (\(_, {voice}) -> voice == params.voice)
   in
-    g [] (List.map (rollNote model) notes)
+    g [] (List.map (rollNote model params) notes)
 
-rollNote : Model -> (Int, Note) -> Svg Msg
-rollNote model (id, note) =
+rollNote : Model -> Params -> (Int, Note) -> Svg Msg
+rollNote model params (id, note) =
   let
     xVal = note.start * cellWidth
-    yVal = toFloat (topNote - note.pitch) * laneHeight
+    yVal = toFloat (params.topPitch - note.pitch) * params.laneHeight
     widthVal = note.duration * cellWidth
 
     color = case note.user of
@@ -129,7 +156,7 @@ rollNote model (id, note) =
       [ x (String.fromFloat xVal)
       , y (String.fromFloat yVal)
       , width (String.fromFloat widthVal)
-      , height (String.fromFloat laneHeight)
+      , height (String.fromFloat params.laneHeight)
       , fill color
       , onClick (RemoveNote id)
       ] []
@@ -143,11 +170,11 @@ splitAlternating xs =
   in
     (left, right)
     
-pitchLanes : Int -> Svg Msg
-pitchLanes voice = 
+pitchLanes : Params -> Svg Msg
+pitchLanes params = 
   let
-    pitches = List.range (topNote - pitchCount) topNote
-    lanes = List.map (pitchRow voice) pitches
+    pitches = List.range (params.topPitch - params.pitches) params.topPitch
+    lanes = List.map (pitchRow params) pitches
     (white, gray) = splitAlternating lanes
 
   in
@@ -156,17 +183,17 @@ pitchLanes voice =
       , g [ color "lightgray" ] gray
       ]
 
-pitchRow : Int -> Int -> Svg Msg
-pitchRow voice pitch =
+pitchRow : Params -> Int -> Svg Msg
+pitchRow params pitch =
   g []
-    [ pitchLane voice pitch
-    , pitchLabel pitch
+    [ pitchLane params pitch
+    , pitchLabel params pitch
     ]
 
-pitchLabel : Int -> Svg msg
-pitchLabel pitch =
+pitchLabel : Params -> Int -> Svg msg
+pitchLabel params pitch =
   let
-    yVal = -10 + toFloat (topNote - pitch) * laneHeight
+    yVal = -10 + toFloat (params.topPitch - pitch) * params.laneHeight
   in
     text_
       [ x (String.fromInt -50)
@@ -174,35 +201,35 @@ pitchLabel pitch =
       , fill "black"
       ] [ text (pitchToString pitch) ]
 
-pitchLane : Int -> Int -> Svg Msg
-pitchLane voice pitch =
+pitchLane : Params -> Int -> Svg Msg
+pitchLane params pitch =
   let
-    yVal = toFloat (topNote - pitch) * laneHeight
+    yVal = toFloat (params.topPitch - pitch) * params.laneHeight
   in
     rect 
       [ x (String.fromInt 0)
       , y (String.fromFloat yVal)
       , width (String.fromInt rollWidth)
-      , height (String.fromFloat laneHeight)
+      , height (String.fromFloat params.laneHeight)
       , fill "currentColor"
-      , Mouse.onDown (\event -> StartDrawing voice pitch (Tuple.first event.offsetPos) )
+      , Mouse.onDown (\event -> StartDrawing params.voice pitch (Tuple.first event.offsetPos) )
       , Mouse.onMove (\event -> MoveDrawing (Tuple.first event.offsetPos) )
       , Mouse.onUp (\event -> EndDrawing (Tuple.first event.offsetPos) )
       ] []
 
-dividers : Svg Msg
-dividers = 
+dividers : Params -> Svg Msg
+dividers params = 
   let
     positions = List.range 1 beatCount |> List.map (\x -> toFloat x * (rollWidth / beatCount))
   in
-    g [color "gray"] (List.map divider positions)
+    g [color "gray"] (List.map (divider params) positions)
 
-divider : Float -> Svg Msg
-divider xVal =
+divider : Params -> Float -> Svg Msg
+divider params xVal =
   rect 
     [x (String.fromFloat xVal)
     , y (String.fromFloat 0)
     , width (String.fromFloat 2)
-    , height (String.fromInt rollHeight)
+    , height (String.fromInt params.rollHeight)
     , fill "currentColor"
     ] []

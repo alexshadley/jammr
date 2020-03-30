@@ -127,21 +127,11 @@ update msg model =
 
 ---- VIEW ----
 
--- constants
-constLaneHeight = 25
-constRollWidth = 1000
-constLabelWidth = 50
-
-constBeatCount = 16
-constTopNote = 60
-constPitchCount = 24
 
 
 view : Model -> Html Msg
 view model =
   let
-    pitches =
-      List.range (constTopNote - constPitchCount + 1) constTopNote |> List.reverse
     overlay =
       case model.currentUser of
         Just user -> []
@@ -161,9 +151,9 @@ view model =
             , spacing 50 
             ]
             [ Input.button [onClick PlayTrack, centerX] {onPress = Just PlayTrack, label = text "Play Track"}
-            , PianoRoll.pianoRoll model 0
-            , PianoRoll.pianoRoll model 1
-            , PianoRoll.pianoRoll model 2
+            , PianoRoll.pianoRoll model {rollHeight=700, voice=0, topPitch=40, pitches=25}
+            , PianoRoll.pianoRoll model {rollHeight=350, voice=1, topPitch=40, pitches=13}
+            , PianoRoll.pianoRoll model {rollHeight=350, voice=2, topPitch=54, pitches=12}
             ]
           , el [ alignRight, alignTop, moveLeft 50, moveDown 100 ] (usersWidget model)
           ]
