@@ -14,17 +14,12 @@ import Model exposing (..)
 import Track exposing (..)
 import User exposing (User)
 
---rollHeight = 350
 rollWidth = 1000
 labelWidth = 50
 
 beatCount = 24
---topNote = 60
---pitchCount = 12
 subdivisions = 4
 
---laneHeight : Params -> Float
---laneHeight params = rollHeight / (toFloat params.pitches)
 cellWidth = rollWidth / beatCount
 
 defaultColor = "gray"
