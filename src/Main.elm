@@ -5,6 +5,7 @@ import Dict
 import Html exposing (Html)
 import Json.Decode as Decode exposing (Decoder, field, float, int, string)
 import Task
+import Time
 import Process
 
 import Element exposing (..)
@@ -31,7 +32,13 @@ init =
       , currentUser = Nothing
       , users = Dict.empty
       , usernameInput = ""
+      , playbackBeat = Nothing
+      , bpm = 120.0
     } , Cmd.none )
+
+
+-- constants
+subdivisions = 4
 
 
 ---- UPDATE ----
@@ -47,13 +54,19 @@ update msg model =
       ( model, addUser {name = model.usernameInput} )
 
     PlayTrack ->
-      ( model, playNotes (generateInstructions 120 model.track ) )
+      ( { model | playbackBeat = Just 0.0 }, playNotes (generateInstructions model.bpm model.track ) )
+
+    StopPlayback ->
+      ( { model | playbackBeat = Nothing }, stopPlayback () )
+    
+    PlayLabelKey voice pitch ->
+      ( model, playNotes [ generatePitchInst voice pitch ] )
 
     RemoveNote id ->
       ( { model | track = Track.removeNote id model.track}, removeNote {id = id} )
     
     StartDrawing voice pitch x ->
-      ( { model | currentNote = Just {voice = voice, pitch = pitch, startX = x, endX = x} }, Cmd.none)
+      ( { model | currentNote = Just {voice = voice, pitch = pitch, startX = x, endX = x} }, playNotes [ generatePitchInst voice pitch ])
     
     MoveDrawing xCur ->
       ( { model | currentNote = Maybe.map (\cn -> {cn | endX = xCur}) model.currentNote }, Cmd.none)
@@ -88,6 +101,9 @@ update msg model =
         
         Nothing ->
           ( model, Cmd.none)
+    
+    UpdateBeat delta ->
+      ( { model | playbackBeat = Maybe.map (\b -> b + delta) model.playbackBeat}, Cmd.none)
     
     SetNotesFromServer notes ->
       let
@@ -136,7 +152,6 @@ view model =
       case model.currentUser of
         Just user -> []
         Nothing -> [ inFront (loginOverlay model) ]
-
   in
     layout [] <| 
       el
@@ -150,14 +165,28 @@ view model =
             , padding 50
             , spacing 50 
             ]
-            [ Input.button [onClick PlayTrack, centerX] {onPress = Just PlayTrack, label = text "Play Track"}
+            [ playButton model
             , PianoRoll.pianoRoll model {rollHeight=700, voice=0, topPitch=40, pitches=25}
-            , PianoRoll.pianoRoll model {rollHeight=350, voice=1, topPitch=40, pitches=13}
+            , PianoRoll.pianoRoll model {rollHeight=700, voice=1, topPitch=40, pitches=25}
             , PianoRoll.pianoRoll model {rollHeight=350, voice=2, topPitch=54, pitches=12}
             ]
           , el [ alignRight, alignTop, moveLeft 50, moveDown 100 ] (usersWidget model)
           ]
         )
+
+playButton : Model -> Element Msg
+playButton model =
+  let
+    buttonText =
+      case model.playbackBeat of
+        Just _  -> "Stop"
+        Nothing -> "Play Track"
+    action =
+      case model.playbackBeat of
+        Just _  -> StopPlayback
+        Nothing -> PlayTrack
+  in
+    Input.button [onClick action, centerX] {onPress = Just PlayTrack, label = text buttonText}
 
 loginOverlay : Model -> Element Msg
 loginOverlay model =
@@ -258,16 +287,26 @@ port removeUser : {name: String} -> Cmd msg
 duration. Note that times are in seconds, not beats as with `Note`
 -}
 port playNotes : List NoteInstruction -> Cmd msg
+port stopPlayback : () -> Cmd msg
 
 subscriptions : Model -> Sub Msg
-subscriptions _ =
-  Sub.batch
-    [ setNotes (decodeNotes >> SetNotesFromServer)
-    , addNoteFromServer (decodeNote >> AddNoteFromServer)
-    , removeNoteFromServer (decodeDelId >> RemoveNoteFromServer)
-    , setUsersFromServer (decodeUsers >> SetUsersFromServer)
-    , userRegisteredFromServer (decodeUser >> UserRegisteredFromServer)
-    ]
+subscriptions model =
+  let
+    tickMS = (60.0 / model.bpm) * (1000 / subdivisions)
+
+    tick =
+      case model.playbackBeat of
+        Just _ -> [ Time.every tickMS (\_ -> UpdateBeat (1.0 / subdivisions)) ]
+        Nothing -> []
+  in
+    Sub.batch
+      ( [ setNotes (decodeNotes >> SetNotesFromServer)
+        , addNoteFromServer (decodeNote >> AddNoteFromServer)
+        , removeNoteFromServer (decodeDelId >> RemoveNoteFromServer)
+        , setUsersFromServer (decodeUsers >> SetUsersFromServer)
+        , userRegisteredFromServer (decodeUser >> UserRegisteredFromServer)
+        ] ++ tick
+      )
 
 decodeDelId : Decode.Value -> Maybe Int
 decodeDelId v =

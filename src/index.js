@@ -182,20 +182,29 @@ app.ports.addUser.subscribe(user => {
     socket.emit('add_user', user)
 })
 
+app.ports.stopPlayback.subscribe(() => {
+    stopPlayback();
+});
+
 app.ports.playNotes.subscribe(noteInstructions => {
-    Tone.Transport.stop();
-    Tone.Transport.cancel();
-    noteInstructions.map(inst => playNote(inst['frequency'], inst['start'], inst['duration'], inst['voice']));
+    stopPlayback();
+    noteInstructions.map(inst => playNote(inst['pitch'], inst['start'], inst['duration'], inst['voice']));
     Tone.Transport.start();
 })
 
-function playNote(freq, start, duration, voice) {
+function stopPlayback() {
+    Tone.Transport.stop();
+    Tone.Transport.cancel();
+    synths.map(s => s.releaseAll());
+}
+
+function playNote(pitch, start, duration, voice) {
     // transport is used here because of a suspected bug in tonejs. For
     // whatever reason, triggerAttackRelease is broken for sampler
     Tone.Transport.schedule(function(_) {
-        synths[voice].triggerAttack(freq);
+        synths[voice].triggerAttack(pitch);
     }, start);
     Tone.Transport.schedule(function(_) {
-        synths[voice].triggerRelease(freq);
+        synths[voice].triggerRelease(pitch);
     }, start + duration);
 }

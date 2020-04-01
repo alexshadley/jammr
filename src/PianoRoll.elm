@@ -87,7 +87,26 @@ pianoRoll model input =
           , height (String.fromInt params.rollHeight)
           , viewBox ("-" ++ (String.fromInt labelWidth) ++ " 0 " ++ (String.fromInt rollWidth) ++ " " ++ (String.fromInt params.rollHeight))
           ]
-          [pitchLanes params, dividers params, rollNotes model params, currentNote model params]
+          [pitchLanes params, dividers params, rollNotes model params, currentNote model params, playbackPosition model params]
+
+playbackPosition : Model -> Params -> Svg Msg
+playbackPosition model params =
+  case model.playbackBeat of
+    Just beat ->
+      let
+        xVal = cellWidth * beat
+      in
+        rect 
+          [ x (String.fromFloat xVal)
+          , y (String.fromFloat 0)
+          , width (String.fromFloat 2)
+          , height (String.fromInt params.rollHeight)
+          , fill "red"
+          ] []
+
+    Nothing ->
+      g [] []
+
 
 currentNote : Model -> Params -> Svg Msg
 currentNote model params =
@@ -185,15 +204,16 @@ pitchRow params pitch =
     , pitchLabel params pitch
     ]
 
-pitchLabel : Params -> Int -> Svg msg
+pitchLabel : Params -> Int -> Svg Msg
 pitchLabel params pitch =
   let
-    yVal = -10 + toFloat (params.topPitch - pitch) * params.laneHeight
+    yVal = toFloat (params.topPitch - pitch) * params.laneHeight
   in
     text_
       [ x (String.fromInt -50)
       , y (String.fromFloat yVal)
       , fill "black"
+      , Mouse.onDown (\_ -> PlayLabelKey params.voice pitch)
       ] [ text (pitchToString pitch) ]
 
 pitchLane : Params -> Int -> Svg Msg

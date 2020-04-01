@@ -1,8 +1,12 @@
-module Track exposing (Note, NoteInstruction, Track, empty, addNote, addNoteWithId, getNote, removeNote, pitchToString, generateInstructions)
+module Track exposing (Note, NoteInstruction, Track, Voice, Pitch, empty, addNote, addNoteWithId, getNote, removeNote, pitchToString, generateInstructions, generatePitchInst)
 
 import Dict exposing (Dict)
 import Process
 import Task
+
+
+type alias Voice = Int
+type alias Pitch = Int
 
 
 a4Frq = 440
@@ -10,7 +14,7 @@ a4Frq = 440
 {-| usable by JS to play a note
 -}
 type alias NoteInstruction =
-  { frequency: Float
+  { pitch : String
   , start : Float
   , duration : Float
   , voice : Int
@@ -101,12 +105,12 @@ pitchToString note =
           11 -> "G#"
           _  -> "impossible" -- is there a way to fix this?
   in
-    letter ++ " " ++ String.fromInt (note // 12)
+    letter ++ String.fromInt (note // 12)
 
 
-pitchFrq : Int -> Float
+{- pitchFrq : Int -> Float
 pitchFrq pitch =
-  a4Frq * (2 ^ (1 / 12)) ^ toFloat (pitch - 48)
+  a4Frq * (2 ^ (1 / 12)) ^ toFloat (pitch - 48) -}
 
 
 delay : Float -> msg -> Cmd msg
@@ -115,39 +119,13 @@ delay time msg =
     |> Task.perform (\_ -> msg)
 
 
-playNote : (Float -> msg) -> msg -> Int -> Note -> Cmd msg
-playNote playCmd stopCmd tempo note =
-  let
-    msPerBeat =
-      (60 / toFloat tempo) * 1000
-  in
-    Cmd.batch
-      [ delay (note.start * msPerBeat) <| playCmd (pitchFrq note.pitch)
-      , delay ((note.start + note.duration - 0.01) * msPerBeat) stopCmd
-      ]
-
-
-{-| Produces a command to play the notes of a track
-
-Note that we pass in the constructors for play and stop commands, that way we
-don't have to import them. There's probably a better way to do this.
-
--}
-{-playTrack : (Float -> msg) -> msg -> Int -> Track -> Cmd msg
-playTrack playCmd stopCmd tempo track =
-  track.notes
-    |> Dict.toList 
-    |> List.map Tuple.second
-    |> List.map (playNote playCmd stopCmd tempo)
-    |> Cmd.batch-}
-
 generateNote : Float -> Note -> NoteInstruction
 generateNote tempo note =
   let
     secPerBeat =
       (60 / tempo)
   in
-    { frequency = pitchFrq note.pitch
+    { pitch = pitchToString note.pitch
     , start     = note.start * secPerBeat
     , duration  = note.duration * secPerBeat
     , voice     = note.voice
@@ -160,3 +138,11 @@ generateInstructions tempo track =
     |> Dict.toList 
     |> List.map Tuple.second
     |> List.map (generateNote tempo)
+
+generatePitchInst : Int -> Int -> NoteInstruction
+generatePitchInst voice pitch =
+  { pitch = pitchToString pitch
+  , start     = 0
+  , duration  = 0.3
+  , voice     = voice
+  }

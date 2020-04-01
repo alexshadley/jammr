@@ -20,4 +20,7 @@ type alias Model =
   , currentUser : Maybe User
   , users : Dict String User
   , usernameInput : String
+  -- the beat that playback is currently on, if track is playing
+  , playbackBeat : Maybe Float
+  , bpm : Float
   }

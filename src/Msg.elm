@@ -11,6 +11,8 @@ type Msg
     = UsernameUpdate String
     | SubmitUser
     | PlayTrack
+    | StopPlayback
+    | PlayLabelKey Voice Pitch
     | RemoveNote Int
     | StartDrawing Int Int Float
     | MoveDrawing Float
@@ -20,6 +22,7 @@ type Msg
      -}
     | MoveDrawingOnNote Float
     | EndDrawingOnNote Float
+    | UpdateBeat Float
     -- network
     | SetNotesFromServer (List (Int, Note))
     | AddNoteFromServer (Maybe (Int, Note))
