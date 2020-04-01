@@ -166,8 +166,8 @@ view model =
             , spacing 50 
             ]
             [ playButton model
-            , PianoRoll.pianoRoll model {rollHeight=700, voice=0, topPitch=40, pitches=25}
-            , PianoRoll.pianoRoll model {rollHeight=700, voice=1, topPitch=40, pitches=25}
+            , PianoRoll.pianoRoll model {rollHeight=700, voice=0, topPitch=39, pitches=25}
+            , PianoRoll.pianoRoll model {rollHeight=700, voice=1, topPitch=51, pitches=25}
             , PianoRoll.pianoRoll model {rollHeight=350, voice=2, topPitch=54, pitches=12}
             ]
           , el [ alignRight, alignTop, moveLeft 50, moveDown 100 ] (usersWidget model)

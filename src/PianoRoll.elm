@@ -79,13 +79,14 @@ pianoRoll : Model -> InputParams -> Element.Element Msg
 pianoRoll model input =
   let
     params = calculateParams input
+    totalWidth = rollWidth + labelWidth
   in
     Element.el [] <| 
       Element.html <|
         svg 
-          [ width (String.fromInt rollWidth)
+          [ width (String.fromInt totalWidth)
           , height (String.fromInt params.rollHeight)
-          , viewBox ("-" ++ (String.fromInt labelWidth) ++ " 0 " ++ (String.fromInt rollWidth) ++ " " ++ (String.fromInt params.rollHeight))
+          , viewBox ("-" ++ (String.fromInt labelWidth) ++ " 0 " ++ (String.fromInt totalWidth) ++ " " ++ (String.fromInt params.rollHeight))
           ]
           [pitchLanes params, dividers params, rollNotes model params, currentNote model params, playbackPosition model params]
 
@@ -207,7 +208,7 @@ pitchRow params pitch =
 pitchLabel : Params -> Int -> Svg Msg
 pitchLabel params pitch =
   let
-    yVal = toFloat (params.topPitch - pitch) * params.laneHeight
+    yVal = toFloat (params.topPitch - pitch) * params.laneHeight + ((4.0 / 5.0) * params.laneHeight)
   in
     text_
       [ x (String.fromInt -50)
