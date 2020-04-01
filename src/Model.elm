@@ -6,8 +6,8 @@ import Track exposing (..)
 import User exposing (User)
 
 type alias CurrentNote =
-  { voice: Int
-  , pitch: Int
+  { voice: Voice
+  , pitch: Pitch
   , startX: Float
   , endX: Float
   }

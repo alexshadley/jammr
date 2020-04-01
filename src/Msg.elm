@@ -14,7 +14,7 @@ type Msg
     | StopPlayback
     | PlayLabelKey Voice Pitch
     | RemoveNote Int
-    | StartDrawing Int Int Float
+    | StartDrawing Voice Pitch Float
     | MoveDrawing Float
     | EndDrawing Float
     {- these hacks are necessary because mouse offset is always calculated

@@ -17,15 +17,15 @@ type alias NoteInstruction =
   { pitch : String
   , start : Float
   , duration : Float
-  , voice : Int
+  , voice : Voice
   }
 
 type alias Note =
-  { pitch : Int
+  { pitch : Pitch
   , start : Float
   , duration : Float
   , user : Maybe String
-  , voice : Int
+  , voice : Voice
   }
 
 type alias Track = 
@@ -65,32 +65,11 @@ removeNote id track =
   { track | notes = Dict.remove id track.notes }
 
 
-{-pitchToNumeric : Pitch -> Int
-pitchToNumeric ( letter, octave ) =
-  let
-    stepsAbove =
-      case letter of
-        A  -> 0
-        AS -> 1
-        B  -> 2
-        C  -> 3
-        CS -> 4
-        D  -> 5
-        DS -> 6
-        E  -> 7
-        F  -> 8
-        FS -> 9
-        G  -> 10
-        GS -> 11
-  in
-    octave * 12 + stepsAbove-}
-
-
-pitchToString : Int -> String
-pitchToString note =
+pitchToString : Pitch -> String
+pitchToString pitch =
   let
     letter =
-      case modBy 12 note of
+      case modBy 12 pitch of
           0  -> "C"
           1  -> "C#"
           2  -> "D"
@@ -105,12 +84,7 @@ pitchToString note =
           11 -> "B"
           _  -> "impossible" -- is there a way to fix this?
   in
-    letter ++ String.fromInt ((note // 12) - 1)
-
-
-{- pitchFrq : Int -> Float
-pitchFrq pitch =
-  a4Frq * (2 ^ (1 / 12)) ^ toFloat (pitch - 48) -}
+    letter ++ String.fromInt ((pitch // 12) - 1)
 
 
 delay : Float -> msg -> Cmd msg
@@ -139,7 +113,7 @@ generateInstructions tempo track =
     |> List.map Tuple.second
     |> List.map (generateNote tempo)
 
-generatePitchInst : Int -> Int -> NoteInstruction
+generatePitchInst : Voice -> Pitch -> NoteInstruction
 generatePitchInst voice pitch =
   { pitch = pitchToString pitch
   , start     = 0

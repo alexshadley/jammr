@@ -278,7 +278,7 @@ port removeNoteFromServer : (Decode.Value -> msg) -> Sub msg
 port setUsersFromServer : (Decode.Value -> msg) -> Sub msg
 port userRegisteredFromServer : (Decode.Value -> msg) -> Sub msg
 
-port addNote : {id: Int, pitch: Int, start: Float, duration: Float, user: Maybe String, voice: Int} -> Cmd msg
+port addNote : {id: Int, pitch: Pitch, start: Float, duration: Float, user: Maybe String, voice: Voice} -> Cmd msg
 port removeNote : {id: Int} -> Cmd msg
 port addUser : {name: String} -> Cmd msg
 port removeUser : {name: String} -> Cmd msg
