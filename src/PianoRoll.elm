@@ -24,30 +24,58 @@ cellWidth = rollWidth / beatCount
 
 defaultColor = "gray"
 
-getUserColor : User -> String
-getUserColor user =
-  case user.color of
-    (r, g, b) -> "rgb(" ++ (String.fromInt r) ++ ", " ++ (String.fromInt g) ++ ", " ++ (String.fromInt b) ++ ")"
-
+laneColor1 = "white"
+laneColor2 = "lightgray"
+dividerColor = "#bbbbbb"
 
 {-| Returns (start, duration) from the start and end of a note drawing
 -}
-calcStartAndDuration : Float -> Float -> (Float, Float)
-calcStartAndDuration start end =
+calcStartAndDuration : CurrentNote -> Float -> (Float, Float)
+calcStartAndDuration {startX, endX, leftStartArea} prevSize =
   let
-    startBin = truncate <| start / ( rollWidth / ( beatCount * subdivisions ) )
+    startBin = truncate <| startX / ( rollWidth / ( beatCount * subdivisions ) )
     startBeat = toFloat startBin / subdivisions
-    endBin = 1 + ( truncate <| end / ( rollWidth / ( beatCount * subdivisions ) ) )
+    endBin = 1 + ( truncate <| endX / ( rollWidth / ( beatCount * subdivisions ) ) )
     endBeat = toFloat endBin / subdivisions
-  in
-    if endBin < startBin then
-      (startBeat, 1)
-    else
-      if startBin == endBin then
-        (startBeat, 1)
-      else
-        (startBeat, endBeat - startBeat)
 
+    duration =
+      if leftStartArea then
+        endBeat - startBeat
+      else
+        Basics.max prevSize (endBeat - startBeat)
+  in
+    (startBeat, duration)
+  
+
+-- gives fill and border colors
+getUserColors : User -> (String, String)
+getUserColors user =
+  case user.color of
+    (r, g, b) -> 
+      let
+        borderR = Basics.max 0 (r - 50)
+        borderG = Basics.max 0 (g - 50)
+        borderB = Basics.max 0 (b - 50)
+      in
+        ( "rgb(" ++ (String.fromInt r) ++ ", " ++ (String.fromInt g) ++ ", " ++ (String.fromInt b) ++ ")"
+        , "rgb(" ++ (String.fromInt borderR) ++ ", " ++ (String.fromInt borderG) ++ ", " ++ (String.fromInt borderB) ++ ")"
+        )
+
+
+noteStyling : Maybe User -> List (Svg.Attribute msg)
+noteStyling user =
+  let
+    (fillColor, borderColor) =
+      case user of
+        Just u -> getUserColors u
+        Nothing   -> (defaultColor, defaultColor)
+
+  in
+    [ fill fillColor
+    , stroke borderColor
+    , strokeWidth "1.5"
+    , rx "5"
+    ]
 
 
 type alias InputParams =
@@ -109,38 +137,35 @@ playbackPosition model params =
       g [] []
 
 
+
+
 currentNote : Model -> Params -> Svg Msg
 currentNote model params =
-  let
-    color = case model.currentUser of
-      Just user -> getUserColor user
-      Nothing -> defaultColor
-  in
-    case model.currentNote of
-      Just {voice, pitch, startX, endX} ->
-        case voice == params.voice of
-          True ->
-            let
-              (start, duration) = calcStartAndDuration startX endX
-              xVal = start * cellWidth
-              yVal = toFloat (params.topPitch - pitch) * params.laneHeight
-              widthVal = duration * cellWidth
-            in
-              rect 
-                [ x (String.fromFloat xVal)
+  case model.currentNote of
+    Just ({voice, pitch, startX, endX} as note) ->
+      case voice == params.voice of
+        True ->
+          let
+            (start, duration) = calcStartAndDuration note model.lastNoteBeats
+            xVal = start * cellWidth
+            yVal = toFloat (params.topPitch - pitch) * params.laneHeight
+            widthVal = duration * cellWidth
+          in
+            rect 
+              ( [ x (String.fromFloat xVal)
                 , y (String.fromFloat yVal)
                 , width (String.fromFloat widthVal)
                 , height (String.fromFloat params.laneHeight)
-                , fill color
                 , Mouse.onMove (\event -> MoveDrawingOnNote (Tuple.first event.offsetPos) )
                 , Mouse.onUp (\event -> EndDrawingOnNote (Tuple.first event.offsetPos) )
-                ] []
-          
-          False ->
-            g [] []
+                ] ++ noteStyling model.currentUser
+              ) []
+        
+        False ->
+          g [] []
 
-      Nothing ->
-        g [] []
+    Nothing ->
+      g [] []
 
 rollNotes : Model -> Params -> Svg Msg
 rollNotes model params =
@@ -158,23 +183,17 @@ rollNote model params (id, note) =
     yVal = toFloat (params.topPitch - note.pitch) * params.laneHeight
     widthVal = note.duration * cellWidth
 
-    color = case note.user of
-      Just name ->
-        case Dict.get name model.users of
-          Just user -> getUserColor user
-          Nothing -> defaultColor
-      
-      Nothing -> defaultColor
+    user = note.user |> Maybe.andThen (\name -> Dict.get name model.users)
 
   in
     rect 
-      [ x (String.fromFloat xVal)
-      , y (String.fromFloat yVal)
-      , width (String.fromFloat widthVal)
-      , height (String.fromFloat params.laneHeight)
-      , fill color
-      , onClick (RemoveNote id)
-      ] []
+      ( [ x (String.fromFloat xVal)
+        , y (String.fromFloat yVal)
+        , width (String.fromFloat widthVal)
+        , height (String.fromFloat params.laneHeight)
+        , onClick (RemoveNote id)
+        ] ++ noteStyling user
+      ) []
 
 splitAlternating : List a -> (List a, List a)
 splitAlternating xs =
@@ -236,16 +255,20 @@ pitchLane params pitch =
 dividers : Params -> Svg Msg
 dividers params = 
   let
-    positions = List.range 1 beatCount |> List.map (\x -> toFloat x * (rollWidth / beatCount))
+    dividerNumbers = List.range 1 beatCount
   in
-    g [color "gray"] (List.map (divider params) positions)
+    g [color dividerColor] (List.map (divider params) dividerNumbers)
 
-divider : Params -> Float -> Svg Msg
-divider params xVal =
-  rect 
-    [x (String.fromFloat xVal)
-    , y (String.fromFloat 0)
-    , width (String.fromFloat 2)
-    , height (String.fromInt params.rollHeight)
-    , fill "currentColor"
-    ] []
+divider : Params -> Int -> Svg Msg
+divider params num =
+  let
+    widthVal = if modBy 4 num == 0 then 4 else 2
+    xVal = toFloat num * (rollWidth / beatCount) - (widthVal / 2)
+  in
+    rect 
+      [x (String.fromFloat xVal)
+      , y (String.fromFloat 0)
+      , width (String.fromFloat widthVal)
+      , height (String.fromInt params.rollHeight)
+      , fill "currentColor"
+      ] []

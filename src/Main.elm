@@ -29,6 +29,7 @@ init : ( Model, Cmd Msg )
 init =
     ( { track = Track.empty
       , currentNote = Nothing
+      , lastNoteBeats = 1.0
       , currentUser = Nothing
       , users = Dict.empty
       , usernameInput = ""
@@ -66,16 +67,42 @@ update msg model =
       ( { model | track = Track.removeNote id model.track}, removeNote {id = id} )
     
     StartDrawing voice pitch x ->
-      ( { model | currentNote = Just {voice = voice, pitch = pitch, startX = x, endX = x} }, playNotes [ generatePitchInst voice pitch ])
+      ( { model | 
+          currentNote = Just 
+            { voice = voice
+            , pitch = pitch
+            , startX = x
+            , endX = x
+            , leftStartArea = False
+            }
+        }
+      , playNotes [ generatePitchInst voice pitch ]
+      )
     
+    -- TODO: make this less awful
     MoveDrawing xCur ->
-      ( { model | currentNote = Maybe.map (\cn -> {cn | endX = xCur}) model.currentNote }, Cmd.none)
+      let
+        newNote =
+          Maybe.map (
+            \cn -> 
+              let
+                leftStart = 
+                  let
+                    (_, duration) = PianoRoll.calcStartAndDuration cn model.lastNoteBeats
+                  in
+                    duration > model.lastNoteBeats
+              in
+                {cn | endX = xCur, leftStartArea = cn.leftStartArea || leftStart}
+            ) model.currentNote
+      in
+        ( { model | currentNote = newNote }
+        , Cmd.none)
     
     EndDrawing xFinal ->
       case model.currentNote of
-        Just {voice, pitch, startX, endX} ->
+        Just ({voice, pitch} as note) ->
           let
-            (newStart, newDuration) = PianoRoll.calcStartAndDuration startX endX
+            (newStart, newDuration) = PianoRoll.calcStartAndDuration note model.lastNoteBeats
             newNote = { pitch = pitch, start = newStart, duration = newDuration, user = Maybe.map .name model.currentUser, voice = voice}
             (newTrack, newId) = Track.addNote newNote model.track
           in
@@ -86,17 +113,37 @@ update msg model =
           ( model, Cmd.none)
 
     MoveDrawingOnNote xCur ->
-      ( { model | currentNote = Maybe.map (\cn -> {cn | endX = cn.startX + xCur}) model.currentNote }, Cmd.none)
+      let
+        newNote =
+          Maybe.map (
+            \cn -> 
+              let
+                leftStart = 
+                  let
+                    (_, duration) = PianoRoll.calcStartAndDuration cn model.lastNoteBeats
+                  in
+                    duration > model.lastNoteBeats
+              in
+                {cn | endX = cn.startX + xCur, leftStartArea = cn.leftStartArea || leftStart}
+            ) model.currentNote
+      in
+        ( { model | currentNote = newNote }
+        , Cmd.none)
 
     EndDrawingOnNote xFinal ->
       case model.currentNote of
-        Just {voice, pitch, startX, endX} ->
+        Just ({voice, pitch, startX} as note) ->
           let
-            (newStart, newDuration) = PianoRoll.calcStartAndDuration startX (startX + xFinal)
+            noteUpdated = { note | endX = startX + xFinal }
+            (newStart, newDuration) = PianoRoll.calcStartAndDuration noteUpdated model.lastNoteBeats
             newNote = { pitch = pitch, start = newStart, duration = newDuration, user = Maybe.map .name model.currentUser, voice = voice}
             (newTrack, newId) = Track.addNote newNote model.track
           in
-            ( { model | currentNote = Nothing, track = newTrack}
+            ( { model 
+                | currentNote = Nothing
+                , lastNoteBeats = newNote.duration
+                , track = newTrack
+                }
             , addNote {id = newId, pitch = newNote.pitch, start = newNote.start, duration = newNote.duration, user = newNote.user, voice = newNote.voice} )
         
         Nothing ->

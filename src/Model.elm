@@ -6,16 +6,18 @@ import Track exposing (..)
 import User exposing (User)
 
 type alias CurrentNote =
-  { voice: Voice
-  , pitch: Pitch
-  , startX: Float
-  , endX: Float
+  { voice         : Voice
+  , pitch         : Pitch
+  , startX        : Float
+  , endX          : Float
+  , leftStartArea : Bool
   }
 
 type alias Model =
   { track : Track 
   --pitch, start, and end of note currently being drawn
   , currentNote : Maybe CurrentNote
+  , lastNoteBeats : Float
   -- `Maybe` because the user may not have logged in yet
   , currentUser : Maybe User
   , users : Dict String User
