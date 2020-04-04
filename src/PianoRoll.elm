@@ -116,7 +116,34 @@ pianoRoll model input =
           , height (String.fromInt params.rollHeight)
           , viewBox ("-" ++ (String.fromInt labelWidth) ++ " 0 " ++ (String.fromInt totalWidth) ++ " " ++ (String.fromInt params.rollHeight))
           ]
-          [pitchLanes params, dividers params, rollNotes model params, currentNote model params, playbackPosition model params]
+          [ pitchLanes params
+          , dividers params
+          , rollNotes model params
+          , currentNote model params
+          , playbackPosition model params
+          , controlOverlay model params
+          ]
+
+
+controlOverlay : Model -> Params -> Svg Msg
+controlOverlay model params =
+  case model.uiMode of
+    Selecting ->
+      rect 
+        [ x "0"
+        , y "0"
+        , width (String.fromInt rollWidth)
+        , height (String.fromInt params.rollHeight)
+        , opacity "0"
+        , Mouse.onDown (\e -> StartSelection params.voice e.offsetPos)
+        , Mouse.onMove (\e -> MoveSelection e.offsetPos)
+        , Mouse.onUp (\e -> EndSelection e.offsetPos)
+        ]
+        []
+    
+    _ ->
+      g [] []
+
 
 playbackPosition : Model -> Params -> Svg Msg
 playbackPosition model params =
@@ -135,8 +162,6 @@ playbackPosition model params =
 
     Nothing ->
       g [] []
-
-
 
 
 currentNote : Model -> Params -> Svg Msg

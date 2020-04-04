@@ -4,6 +4,7 @@ certainly a better way to do this
 
 -}
 
+import Model exposing (..)
 import Track exposing (..)
 import User exposing (User)
 
@@ -12,7 +13,9 @@ type Msg
     | SubmitUser
     | PlayTrack
     | StopPlayback
+    | SetMode UIMode
     | PlayLabelKey Voice Pitch
+
     | RemoveNote Int
     | StartDrawing Voice Pitch Float
     | MoveDrawing Float
@@ -22,6 +25,10 @@ type Msg
      -}
     | MoveDrawingOnNote Float
     | EndDrawingOnNote Float
+    | StartSelection Voice (Float, Float)
+    | MoveSelection (Float, Float)
+    | EndSelection (Float, Float)
+
     | UpdateBeat Float
     -- network
     | SetNotesFromServer (List (Int, Note))

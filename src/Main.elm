@@ -28,8 +28,11 @@ import PianoRoll
 init : ( Model, Cmd Msg )
 init =
     ( { track = Track.empty
+      , uiMode = Painting
       , currentNote = Nothing
       , lastNoteBeats = 1.0
+      , currentSelection = Nothing
+
       , currentUser = Nothing
       , users = Dict.empty
       , usernameInput = ""
@@ -59,6 +62,9 @@ update msg model =
 
     StopPlayback ->
       ( { model | playbackBeat = Nothing }, stopPlayback () )
+    
+    SetMode mode ->
+      ( { model | uiMode = mode}, Cmd.none)
     
     PlayLabelKey voice pitch ->
       ( model, playNotes [ generatePitchInst voice pitch ] )
@@ -147,7 +153,16 @@ update msg model =
             , addNote {id = newId, pitch = newNote.pitch, start = newNote.start, duration = newNote.duration, user = newNote.user, voice = newNote.voice} )
         
         Nothing ->
-          ( model, Cmd.none)
+          (model, Cmd.none)
+    
+    StartSelection voice (x, y) ->
+      (model, Cmd.none)
+
+    MoveSelection (x, y) ->
+      (model, Cmd.none)
+
+    EndSelection (x, y) ->
+      (model, Cmd.none)
     
     UpdateBeat delta ->
       ( { model | playbackBeat = Maybe.map (\b -> b + delta) model.playbackBeat}, Cmd.none)
@@ -213,6 +228,7 @@ view model =
             , spacing 50 
             ]
             [ playButton model
+            , modeButton model
             , PianoRoll.pianoRoll model {rollHeight=700, voice=0, topPitch=48, pitches=25}
             , PianoRoll.pianoRoll model {rollHeight=700, voice=1, topPitch=60, pitches=25}
             , PianoRoll.pianoRoll model {rollHeight=350, voice=2, topPitch=54, pitches=12}
@@ -234,6 +250,14 @@ playButton model =
         Nothing -> PlayTrack
   in
     Input.button [onClick action, centerX] {onPress = Just PlayTrack, label = text buttonText}
+
+modeButton : Model -> Element Msg
+modeButton model =
+  row
+    []
+    [ Input.button [] {onPress = Just (SetMode Painting), label = text "Paint"}
+    , Input.button [] {onPress = Just (SetMode Selecting), label = text "Select"}
+    ]
 
 loginOverlay : Model -> Element Msg
 loginOverlay model =
