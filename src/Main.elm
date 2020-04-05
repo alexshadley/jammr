@@ -2,6 +2,7 @@ port module Main exposing (..)
 
 import Browser
 import Dict
+import Set
 import Html exposing (Html)
 import Json.Decode as Decode exposing (Decoder, field, float, int, string)
 import Task
@@ -27,11 +28,17 @@ import PianoRoll
 
 init : ( Model, Cmd Msg )
 init =
-    ( { track = Track.empty
+    ( { pianoRolls =
+        [ {rollHeight=700, voice=0, topPitch=48, pitches=25}
+        , {rollHeight=700, voice=1, topPitch=60, pitches=25}
+        , {rollHeight=350, voice=2, topPitch=54, pitches=12}
+        ]
+      , track = Track.empty
       , uiMode = Painting
       , currentNote = Nothing
       , lastNoteBeats = 1.0
       , currentSelection = Nothing
+      , selectedNotes = Set.empty
 
       , currentUser = Nothing
       , users = Dict.empty
@@ -43,7 +50,6 @@ init =
 
 -- constants
 subdivisions = 4
-
 
 ---- UPDATE ----
 
@@ -156,16 +162,80 @@ update msg model =
           (model, Cmd.none)
     
     StartSelection voice (x, y) ->
-      (model, Cmd.none)
+      ( { model | currentSelection = Just {voice = voice, start = (x, y), end = (x, y)}}, Cmd.none )
 
     MoveSelection (x, y) ->
-      (model, Cmd.none)
+      ( { model | currentSelection = Maybe.map (\s -> {s | end = (x, y)}) model.currentSelection }, Cmd.none )
 
     EndSelection (x, y) ->
-      (model, Cmd.none)
+      let
+        selectionParameters =
+          model.currentSelection |> Maybe.andThen (\sel ->
+            List.filter (\p -> p.voice == sel.voice) model.pianoRolls |> List.head |> Maybe.andThen (\p ->
+            Just (sel, p)
+            ))
+
+      in
+        case selectionParameters of
+          Just (selection, params) ->
+            let
+              finalParams = PianoRoll.calcParams params
+              (sx, sy) = selection.start
+              finalSelection = ((sx, sy), (x, y))
+
+              selectedNotes = 
+                Dict.toList model.track.notes
+                  |> List.filter (\(_, n) -> PianoRoll.noteInSelection finalParams finalSelection n)
+                  |> List.map Tuple.first
+                  |> Set.fromList
+            in
+              ( { model | selectedNotes = selectedNotes, currentSelection = Nothing }, Cmd.none)
+        
+          Nothing ->
+            ( model, Cmd.none )
+
+    StartNoteMove (x, y) ->
+      ( { model | uiMode = Selecting (Moving {start = (x, y), end = (x, y)}) }, Cmd.none )
+
+    MoveNoteMove (x, y) ->
+      case model.uiMode of
+        Selecting (Moving noteMove) ->
+          ( { model | uiMode = Selecting (Moving {noteMove | end = (x, y)}) }, Cmd.none )
+
+        _ ->
+          ( model, Cmd.none )
+
+    EndNoteMove (x, y) ->
+      let
+        selectionParameters =
+          model.currentSelection |> Maybe.andThen (\sel ->
+            List.filter (\p -> p.voice == sel.voice) model.pianoRolls |> List.head |> Maybe.andThen (\p ->
+            Just (sel, p)
+            ))
+
+      in
+        case (selectionParameters, model.uiMode) of
+          (Just (selection, params), Selecting (Moving noteMove)) ->
+            let
+              finalParams = PianoRoll.calcParams params
+              ((sx, sy), (ex, ey)) = (noteMove.start, noteMove.end)
+              --offsetBeats = 
+
+              {-selectedNotes = 
+                Dict.toList model.track.notes
+                  |> List.filter (\(_, n) -> PianoRoll.noteInSelection finalParams finalSelection n)
+                  |> List.map Tuple.first
+                  |> Set.fromList-}
+            in
+              --( { model | selectedNotes = selectedNotes, currentSelection = Nothing }, Cmd.none)
+              ( { model | uiMode = Selecting SelectingBox}, Cmd.none )
+        
+          _ ->
+            ( model, Cmd.none )
+
     
     UpdateBeat delta ->
-      ( { model | playbackBeat = Maybe.map (\b -> b + delta) model.playbackBeat}, Cmd.none)
+      ( { model | playbackBeat = Maybe.map (\b -> b + delta) model.playbackBeat}, Cmd.none )
     
     SetNotesFromServer notes ->
       let
@@ -227,12 +297,10 @@ view model =
             , padding 50
             , spacing 50 
             ]
-            [ playButton model
-            , modeButton model
-            , PianoRoll.pianoRoll model {rollHeight=700, voice=0, topPitch=48, pitches=25}
-            , PianoRoll.pianoRoll model {rollHeight=700, voice=1, topPitch=60, pitches=25}
-            , PianoRoll.pianoRoll model {rollHeight=350, voice=2, topPitch=54, pitches=12}
-            ]
+            ( [ playButton model
+              , modeButton model
+              ] ++ List.map (PianoRoll.pianoRoll model) model.pianoRolls
+            )
           , el [ alignRight, alignTop, moveLeft 50, moveDown 100 ] (usersWidget model)
           ]
         )
@@ -256,7 +324,7 @@ modeButton model =
   row
     []
     [ Input.button [] {onPress = Just (SetMode Painting), label = text "Paint"}
-    , Input.button [] {onPress = Just (SetMode Selecting), label = text "Select"}
+    , Input.button [] {onPress = Just (SetMode (Selecting SelectingBox)), label = text "Select"}
     ]
 
 loginOverlay : Model -> Element Msg

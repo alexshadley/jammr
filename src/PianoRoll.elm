@@ -1,7 +1,8 @@
-module PianoRoll exposing (pianoRoll, calcStartAndDuration)
+module PianoRoll exposing (pianoRoll, calcStartAndDuration, noteInSelection, calcOffsetBeats, calcOffsetPitches, calcParams)
 
 
 import Dict
+import Set
 import Element
 import Html.Events.Extra.Mouse as Mouse
 import Html.Events exposing (onClick)
@@ -23,6 +24,7 @@ subdivisions = 4
 cellWidth = rollWidth / beatCount
 
 defaultColor = "gray"
+selectionColor = "red"
 
 laneColor1 = "white"
 laneColor2 = "lightgray"
@@ -45,6 +47,40 @@ calcStartAndDuration {startX, endX, leftStartArea} prevSize =
         Basics.max prevSize (endBeat - startBeat)
   in
     (startBeat, duration)
+
+calcNotePos : Params -> Note -> ((Float, Float), (Float, Float))
+calcNotePos params note =
+  let 
+    sx = note.start * cellWidth
+    sy = toFloat (params.topPitch - note.pitch) * params.laneHeight
+    ex = sx + note.duration * cellWidth
+    ey = sy + params.laneHeight
+  in
+    ((sx, sy), (ex, ey))
+
+calcOffsetBeats : Params -> Float -> Float
+calcOffsetBeats params dx =
+  let
+    bins = truncate <| dx / (params.cellWidth / subdivisions)
+  in
+    toFloat bins / subdivisions
+
+calcOffsetPitches : Params -> Float -> Int
+calcOffsetPitches params dy =
+  truncate <| dy / params.laneHeight
+
+{-| Calculates the four points of a note, checks to see if at least one is in
+the provided selection box
+-}
+noteInSelection : Params -> ((Float, Float), (Float, Float)) -> Note -> Bool
+noteInSelection params ((selsx, selsy), (selex, seley)) note =
+  let
+    ((sx, sy), (ex, ey)) = calcNotePos params note
+    notePoints = [(sx, sy), (sx, ey), (ex, sy), (ex, ey)]
+  in
+    notePoints
+      |> List.map (\(x, y) -> selsx <= x && x <= selex && selsy <= y && y <= seley)
+      |> List.member True
   
 
 -- gives fill and border colors
@@ -62,13 +98,14 @@ getUserColors user =
         )
 
 
-noteStyling : Maybe User -> List (Svg.Attribute msg)
-noteStyling user =
+noteStyling : Model -> Maybe User -> Int -> List (Svg.Attribute msg)
+noteStyling model user id =
   let
     (fillColor, borderColor) =
-      case user of
-        Just u -> getUserColors u
-        Nothing   -> (defaultColor, defaultColor)
+      case (Set.member id model.selectedNotes, user) of
+        (True, _)        -> (selectionColor, selectionColor)
+        (False, Just u)  -> getUserColors u
+        (False, Nothing) -> (defaultColor, defaultColor)
 
   in
     [ fill fillColor
@@ -78,35 +115,31 @@ noteStyling user =
     ]
 
 
-type alias InputParams =
-  { rollHeight: Int
-  , voice: Int
-  , topPitch: Int
-  , pitches: Int
-  }
 
 -- also includes calculated values
 type alias Params =
-  { rollHeight: Int
-  , voice: Int
-  , topPitch: Int
-  , pitches: Int
-  , laneHeight: Float
+  { rollHeight : Int
+  , voice      : Int
+  , topPitch   : Int
+  , pitches    : Int
+  , laneHeight : Float
+  , cellWidth  : Float
   }
 
-calculateParams : InputParams -> Params
-calculateParams input =
+calcParams : InputParams -> Params
+calcParams input =
   { rollHeight = input.rollHeight
   , voice = input.voice
   , topPitch = input.topPitch
   , pitches = input.pitches
   , laneHeight = toFloat input.rollHeight / toFloat input.pitches
+  , cellWidth = rollWidth / beatCount
   }
 
 pianoRoll : Model -> InputParams -> Element.Element Msg
 pianoRoll model input =
   let
-    params = calculateParams input
+    params = calcParams input
     totalWidth = rollWidth + labelWidth
   in
     Element.el [] <| 
@@ -121,28 +154,110 @@ pianoRoll model input =
           , rollNotes model params
           , currentNote model params
           , playbackPosition model params
+          , visualOverlay model params
           , controlOverlay model params
           ]
+
+
+visualOverlay : Model -> Params -> Svg msg
+visualOverlay model params =
+  g [] [ selectionBox model params ]
+  
+
+selectionBox : Model -> Params -> Svg msg
+selectionBox model params =
+  case model.currentSelection of
+    Just selection ->
+      let
+        (sx, sy) = selection.start
+        (ex, ey) = selection.end
+
+        (xVal, yVal) = (Basics.min sx ex, Basics.min sy ey)
+        (widthVal, heightVal) = (abs (sx - ex), abs (sy - ey))
+      in
+        rect
+          [ x (String.fromFloat xVal)
+          , y (String.fromFloat yVal)
+          , width (String.fromFloat widthVal)
+          , height (String.fromFloat heightVal)
+          , stroke "black"
+          , fill "rgba(255, 255, 255, 0)"
+          ]
+          []
+
+    Nothing ->
+      g [] []
 
 
 controlOverlay : Model -> Params -> Svg Msg
 controlOverlay model params =
   case model.uiMode of
-    Selecting ->
-      rect 
-        [ x "0"
+    Selecting SelectingBox ->
+      let
+        selectedNotes =
+          Set.toList model.selectedNotes
+            |> List.map (\id -> Dict.get id model.track.notes)
+            |> List.foldr (\maybeNote notes -> notes ++ (Maybe.map (\n -> [n]) maybeNote |> Maybe.withDefault [])) []
+      in
+        g []
+          ( [ baseOverlay model params ] ++
+            ( List.map (noteHandle model params) selectedNotes )
+
+          )
+
+    Selecting (Moving _) ->
+        g [] [ baseOverlay model params ]
+    
+    _ ->
+      g [] []
+
+
+baseOverlay : Model -> Params -> Svg Msg
+baseOverlay model params =
+  let
+    actions =
+      case model.uiMode of
+        Selecting SelectingBox ->
+          [ Mouse.onDown (\e -> StartSelection params.voice e.offsetPos)
+          , Mouse.onMove (\e -> MoveSelection e.offsetPos)
+          , Mouse.onUp (\e -> EndSelection e.offsetPos)
+          ]
+        
+        Selecting (Moving _) ->
+          [ Mouse.onMove (\e -> MoveNoteMove e.offsetPos)
+          , Mouse.onUp (\e -> EndNoteMove e.offsetPos)
+          ]
+        
+        _ -> []
+
+  in
+    rect 
+      ( [ x "0"
         , y "0"
         , width (String.fromInt rollWidth)
         , height (String.fromInt params.rollHeight)
         , opacity "0"
-        , Mouse.onDown (\e -> StartSelection params.voice e.offsetPos)
-        , Mouse.onMove (\e -> MoveSelection e.offsetPos)
-        , Mouse.onUp (\e -> EndSelection e.offsetPos)
-        ]
-        []
-    
-    _ ->
-      g [] []
+        ] ++ actions
+      ) []
+
+
+noteHandle : Model -> Params -> Note -> Svg Msg
+noteHandle model params note =
+  let
+    ((sx, sy), (ex, ey)) = calcNotePos params note
+  in
+    rect 
+      [ x (String.fromFloat sx)
+      , y (String.fromFloat sy)
+      , width (String.fromFloat (ex - sx))
+      , height (String.fromFloat (ey - sy))
+      , Mouse.onDown (\e ->
+        case e.offsetPos of
+          (offX, offY) -> StartNoteMove (sx + offX, sy + offY)
+        )
+      , fill "green"
+      ] []
+
 
 
 playbackPosition : Model -> Params -> Svg Msg
@@ -183,7 +298,7 @@ currentNote model params =
                 , height (String.fromFloat params.laneHeight)
                 , Mouse.onMove (\event -> MoveDrawingOnNote (Tuple.first event.offsetPos) )
                 , Mouse.onUp (\event -> EndDrawingOnNote (Tuple.first event.offsetPos) )
-                ] ++ noteStyling model.currentUser
+                ] ++ noteStyling model model.currentUser -1
               ) []
         
         False ->
@@ -204,20 +319,23 @@ rollNotes model params =
 rollNote : Model -> Params -> (Int, Note) -> Svg Msg
 rollNote model params (id, note) =
   let
-    xVal = note.start * cellWidth
-    yVal = toFloat (params.topPitch - note.pitch) * params.laneHeight
-    widthVal = note.duration * cellWidth
+    ((sx, sy), (ex, ey)) = calcNotePos params note
+    xOffset =
+      case (model.uiMode, Set.member id model.selectedNotes) of
+        (Selecting (Moving {start, end}), True) ->
+          ( calcOffsetBeats params (Tuple.first end - Tuple.first start) * (params.cellWidth / subdivisions) )
+        
+        _ -> 0.0
 
     user = note.user |> Maybe.andThen (\name -> Dict.get name model.users)
-
   in
     rect 
-      ( [ x (String.fromFloat xVal)
-        , y (String.fromFloat yVal)
-        , width (String.fromFloat widthVal)
-        , height (String.fromFloat params.laneHeight)
+      ( [ x (String.fromFloat (sx + xOffset))
+        , y (String.fromFloat sy)
+        , width (String.fromFloat (ex - sx))
+        , height (String.fromFloat (ey - sy))
         , onClick (RemoveNote id)
-        ] ++ noteStyling user
+        ] ++ noteStyling model user id
       ) []
 
 splitAlternating : List a -> (List a, List a)

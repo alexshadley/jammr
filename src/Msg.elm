@@ -25,9 +25,15 @@ type Msg
      -}
     | MoveDrawingOnNote Float
     | EndDrawingOnNote Float
+
     | StartSelection Voice (Float, Float)
     | MoveSelection (Float, Float)
     | EndSelection (Float, Float)
+
+    | StartNoteMove (Float, Float)
+    | MoveNoteMove (Float, Float)
+    | EndNoteMove (Float, Float)
+
 
     | UpdateBeat Float
     -- network

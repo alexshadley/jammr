@@ -1,11 +1,20 @@
-module Model exposing (Model, CurrentNote, BoxSelection, UIMode(..))
+module Model exposing (Model, InputParams, CurrentNote, BoxSelection, UIMode(..), SelectingMode(..))
 
 import Dict exposing (Dict)
+import Set exposing (Set)
 
 import Track exposing (..)
 import User exposing (User)
 
-type UIMode = Painting | Selecting
+type alias InputParams =
+  { rollHeight: Int
+  , voice: Int
+  , topPitch: Int
+  , pitches: Int
+  }
+
+type SelectingMode = SelectingBox | Moving {start: (Float, Float), end: (Float, Float)}
+type UIMode = Painting | Selecting SelectingMode
 
 type alias CurrentNote =
   { voice         : Voice
@@ -22,12 +31,14 @@ type alias BoxSelection =
   }
 
 type alias Model =
-  { track : Track 
+  { pianoRolls : List InputParams
+  , track : Track 
   --pitch, start, and end of note currently being drawn
   , uiMode : UIMode
   , currentNote : Maybe CurrentNote
   , lastNoteBeats : Float
   , currentSelection : Maybe BoxSelection
+  , selectedNotes : Set Int
   -- `Maybe` because the user may not have logged in yet
   , currentUser : Maybe User
   , users : Dict String User
