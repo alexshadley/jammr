@@ -323,7 +323,7 @@ rollNote model params (id, note) =
     xOffset =
       case (model.uiMode, Set.member id model.selectedNotes) of
         (Selecting (Moving {start, end}), True) ->
-          ( calcOffsetBeats params (Tuple.first end - Tuple.first start) * (params.cellWidth / subdivisions) )
+          ( calcOffsetBeats params (Tuple.first end - Tuple.first start) * params.cellWidth )
         
         _ -> 0.0
 
