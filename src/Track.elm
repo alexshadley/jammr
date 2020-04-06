@@ -1,4 +1,4 @@
-module Track exposing (Note, NoteInstruction, Track, Voice, Pitch, empty, addNote, addNoteWithId, getNote, removeNote, pitchToString, generateInstructions, generatePitchInst)
+module Track exposing (Note, NoteInstruction, Track, Voice, Pitch, empty, addNote, addNoteWithId, getNote, getNotes, removeNote, update, pitchToString, generateInstructions, generatePitchInst)
 
 import Dict exposing (Dict)
 import Process
@@ -60,9 +60,29 @@ getNote id track =
   Dict.get id track.notes
 
 
+getNotes : List Int -> Track -> List Note
+getNotes ids track =
+  ids
+    |> List.map (\id -> Dict.get id track.notes)
+    |> List.foldr (\maybeNote notes -> notes ++ (Maybe.map (\n -> [n]) maybeNote |> Maybe.withDefault [])) []
+
+
 removeNote : Int -> Track -> Track
 removeNote id track =
   { track | notes = Dict.remove id track.notes }
+
+
+{-| maps a function over an entry, if it exists
+-}
+update : (Note -> Note) -> Int -> Track -> Track
+update fn id track =
+  let
+    maybeFn maybeNote =
+      case maybeNote of
+        Just note -> Just (fn note)
+        Nothing   -> Nothing
+  in
+    {track | notes = Dict.update id maybeFn track.notes}
 
 
 pitchToString : Pitch -> String

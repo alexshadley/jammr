@@ -191,25 +191,22 @@ selectionBox model params =
 
 controlOverlay : Model -> Params -> Svg Msg
 controlOverlay model params =
-  case model.uiMode of
-    Selecting SelectingBox ->
-      let
-        selectedNotes =
-          Set.toList model.selectedNotes
-            |> List.map (\id -> Dict.get id model.track.notes)
-            |> List.foldr (\maybeNote notes -> notes ++ (Maybe.map (\n -> [n]) maybeNote |> Maybe.withDefault [])) []
-      in
-        g []
-          ( [ baseOverlay model params ] ++
+  let
+    children =
+      case model.uiMode of
+        Selecting SelectingBox ->
+          let
+            selectedNotes = Track.getNotes (Set.toList model.selectedNotes) model.track
+          in
+            [ baseOverlay model params ] ++
             ( List.map (noteHandle model params) selectedNotes )
 
-          )
-
-    Selecting (Moving _) ->
-        g [] [ baseOverlay model params ]
-    
-    _ ->
-      g [] []
+        Selecting (Moving _) ->
+          [ baseOverlay model params ]
+        
+        _ -> []
+  in
+    g [ opacity "0" ] children
 
 
 baseOverlay : Model -> Params -> Svg Msg
@@ -236,7 +233,6 @@ baseOverlay model params =
         , y "0"
         , width (String.fromInt rollWidth)
         , height (String.fromInt params.rollHeight)
-        , opacity "0"
         ] ++ actions
       ) []
 
@@ -255,7 +251,6 @@ noteHandle model params note =
         case e.offsetPos of
           (offX, offY) -> StartNoteMove (sx + offX, sy + offY)
         )
-      , fill "green"
       ] []
 
 
@@ -320,18 +315,23 @@ rollNote : Model -> Params -> (Int, Note) -> Svg Msg
 rollNote model params (id, note) =
   let
     ((sx, sy), (ex, ey)) = calcNotePos params note
-    xOffset =
+    (xOffset, yOffset) =
       case (model.uiMode, Set.member id model.selectedNotes) of
         (Selecting (Moving {start, end}), True) ->
-          ( calcOffsetBeats params (Tuple.first end - Tuple.first start) * params.cellWidth )
+          let
+            ((msx, msy), (mex, mey)) = (start, end)
+          in
+            ( calcOffsetBeats params (mex - msx) * params.cellWidth
+            , toFloat ( calcOffsetPitches params (mey - msy) ) * params.laneHeight
+            )
         
-        _ -> 0.0
+        _ -> (0.0, 0.0)
 
     user = note.user |> Maybe.andThen (\name -> Dict.get name model.users)
   in
     rect 
       ( [ x (String.fromFloat (sx + xOffset))
-        , y (String.fromFloat sy)
+        , y (String.fromFloat (sy + yOffset))
         , width (String.fromFloat (ex - sx))
         , height (String.fromFloat (ey - sy))
         , onClick (RemoveNote id)

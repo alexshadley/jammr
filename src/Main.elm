@@ -207,28 +207,46 @@ update msg model =
 
     EndNoteMove (x, y) ->
       let
+        selectedNotes = Track.getNotes (Set.toList model.selectedNotes) model.track
+        
+        selectionVoice = 
+          case selectedNotes of
+            n::_ -> Just n.voice
+            _    -> Nothing
+
         selectionParameters =
-          model.currentSelection |> Maybe.andThen (\sel ->
-            List.filter (\p -> p.voice == sel.voice) model.pianoRolls |> List.head |> Maybe.andThen (\p ->
-            Just (sel, p)
-            ))
+          selectionVoice
+            |> Maybe.andThen (\voice -> List.filter (\p -> p.voice == voice) model.pianoRolls |> List.head)
+            |> Maybe.andThen (\p -> Just p)
 
       in
         case (selectionParameters, model.uiMode) of
-          (Just (selection, params), Selecting (Moving noteMove)) ->
+          (Just params, Selecting (Moving noteMove)) ->
             let
               finalParams = PianoRoll.calcParams params
               ((sx, sy), (ex, ey)) = (noteMove.start, noteMove.end)
-              --offsetBeats = 
+              offsetBeats = PianoRoll.calcOffsetBeats finalParams (ex - sx)
+              offsetPitches = PianoRoll.calcOffsetPitches finalParams (ey - sy)
 
-              {-selectedNotes = 
-                Dict.toList model.track.notes
-                  |> List.filter (\(_, n) -> PianoRoll.noteInSelection finalParams finalSelection n)
-                  |> List.map Tuple.first
-                  |> Set.fromList-}
+              noteUpdateFn note = { note | start = note.start + offsetBeats, pitch = note.pitch - offsetPitches}
+              newTrack = 
+                Set.toList model.selectedNotes
+                  |> List.foldr (\id track -> Track.update noteUpdateFn id track) model.track
+
+              updatedNotes =
+                List.map2
+                  Tuple.pair
+                  ( Set.toList model.selectedNotes )
+                  ( Track.getNotes (Set.toList model.selectedNotes) newTrack )
+              
+              payloadNotes =
+                List.map
+                  (\(id, newNote) -> { id = id, pitch = newNote.pitch, start = newNote.start, duration = newNote.duration, user = newNote.user, voice = newNote.voice } )
+                  updatedNotes
             in
-              --( { model | selectedNotes = selectedNotes, currentSelection = Nothing }, Cmd.none)
-              ( { model | uiMode = Selecting SelectingBox}, Cmd.none )
+              ( { model | uiMode = Selecting SelectingBox, track = newTrack}
+              , updateNotes {notes = payloadNotes}
+              )
         
           _ ->
             ( model, Cmd.none )
@@ -250,6 +268,12 @@ update msg model =
         
         Nothing ->
           (model, Cmd.none)
+
+    UpdateNotesFromServer notes ->
+      let
+        newTrack = List.foldr (\(id, note) track -> Track.addNoteWithId id note track) model.track notes
+      in
+        ({model | track = newTrack}, Cmd.none)
       
     RemoveNoteFromServer result ->
       case result of
@@ -411,13 +435,15 @@ userRow user =
 
 ---- PROGRAM ----
 
-port setNotes : (Decode.Value -> msg) -> Sub msg
+port setNotesFromServer : (Decode.Value -> msg) -> Sub msg
 port addNoteFromServer : (Decode.Value -> msg) -> Sub msg
+port updateNotesFromServer : (Decode.Value -> msg) -> Sub msg
 port removeNoteFromServer : (Decode.Value -> msg) -> Sub msg
 port setUsersFromServer : (Decode.Value -> msg) -> Sub msg
 port userRegisteredFromServer : (Decode.Value -> msg) -> Sub msg
 
 port addNote : {id: Int, pitch: Pitch, start: Float, duration: Float, user: Maybe String, voice: Voice} -> Cmd msg
+port updateNotes : {notes: List {id: Int, pitch: Pitch, start: Float, duration: Float, user: Maybe String, voice: Voice}} -> Cmd msg
 port removeNote : {id: Int} -> Cmd msg
 port addUser : {name: String} -> Cmd msg
 port removeUser : {name: String} -> Cmd msg
@@ -439,8 +465,9 @@ subscriptions model =
         Nothing -> []
   in
     Sub.batch
-      ( [ setNotes (decodeNotes >> SetNotesFromServer)
+      ( [ setNotesFromServer (decodeNotes >> SetNotesFromServer)
         , addNoteFromServer (decodeNote >> AddNoteFromServer)
+        , updateNotesFromServer (decodeNotes >> UpdateNotesFromServer)
         , removeNoteFromServer (decodeDelId >> RemoveNoteFromServer)
         , setUsersFromServer (decodeUsers >> SetUsersFromServer)
         , userRegisteredFromServer (decodeUser >> UserRegisteredFromServer)
@@ -455,7 +482,7 @@ decodeDelId v =
 
 decodeNotes : Decode.Value -> List (Int, Note)
 decodeNotes v =
-  case Decode.decodeValue (Decode.list noteDecoder) v of
+  case Decode.decodeValue (field "notes" (Decode.list noteDecoder)) v of
     Ok notes -> notes
     Err e -> Debug.log (Decode.errorToString e) []
 

@@ -142,15 +142,20 @@ window.addEventListener('beforeunload', (event) => {
 
 socket.on('set_notes', (message) => {
     console.log(message)
-    app.ports.setNotes.send(message['notes']);
+    app.ports.setNotesFromServer.send(message);
 });
 
-socket.on('add_note_to_client', (message) => {
+socket.on('add_note', (message) => {
     console.log(message)
     app.ports.addNoteFromServer.send(message);
 });
 
-socket.on('remove_note_from_client', (message) => {
+socket.on('update_notes', (message) => {
+    console.log(message)
+    app.ports.updateNotesFromServer.send(message);
+});
+
+socket.on('remove_note', (message) => {
     console.log(message)
     app.ports.removeNoteFromServer.send(message);
 });
@@ -170,12 +175,18 @@ const app = Elm.Main.init({
     node: document.querySelector('main')
 })
 
+console.log(app.ports);
+
 app.ports.addNote.subscribe(note => {
-    socket.emit('add_note_to_server', note)
+    socket.emit('add_note', note)
+})
+
+app.ports.updateNotes.subscribe(notes => {
+    socket.emit('update_notes', notes)
 })
 
 app.ports.removeNote.subscribe(note => {
-    socket.emit('remove_note_from_server', note)
+    socket.emit('remove_note', note)
 })
 
 app.ports.addUser.subscribe(user => {

@@ -39,6 +39,7 @@ type Msg
     -- network
     | SetNotesFromServer (List (Int, Note))
     | AddNoteFromServer (Maybe (Int, Note))
+    | UpdateNotesFromServer (List (Int, Note))
     | RemoveNoteFromServer (Maybe Int)
     | UserRegisteredFromServer (Maybe User)
     | SetUsersFromServer (List User)

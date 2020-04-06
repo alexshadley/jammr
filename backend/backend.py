@@ -11,7 +11,7 @@ socketio = SocketIO(app, cors_allowed_origins='*')
 users = {}
 notes = {}
 
-@socketio.on('add_note_to_server')
+@socketio.on('add_note')
 def add_note(message):
     notes[message['id']] = {
         'id': message['id'],
@@ -20,14 +20,28 @@ def add_note(message):
         'duration': message['duration'],
         'user': message['user'],
         'voice': message['voice'] }
-    emit('add_note_to_client', notes[message['id']], broadcast=True)
+    emit('add_note', notes[message['id']], broadcast=True)
 
     print('note added')
 
-@socketio.on('remove_note_from_server')
+@socketio.on('update_notes')
+def update_notes(message):
+    for note in message['notes']:
+        notes[note['id']] = {
+            'id': note['id'],
+            'pitch': note['pitch'],
+            'start': note['start'],
+            'duration': note['duration'],
+            'user': note['user'],
+            'voice': note['voice'] }
+
+    emit('update_notes', message, broadcast=True)
+    print('notes updated')
+
+@socketio.on('remove_note')
 def remove_note(message):
     del notes[message['id']]
-    emit('remove_note_from_client', {'id': message['id']}, broadcast=True)
+    emit('remove_note', {'id': message['id']}, broadcast=True)
 
     print('note removed')
 
