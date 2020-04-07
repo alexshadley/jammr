@@ -73,10 +73,14 @@ calcOffsetPitches params dy =
 the provided selection box
 -}
 noteInSelection : Params -> ((Float, Float), (Float, Float)) -> Note -> Bool
-noteInSelection params ((selsx, selsy), (selex, seley)) note =
+noteInSelection params ((selx1, sely1), (selx2, sely2)) note =
   let
     ((sx, sy), (ex, ey)) = calcNotePos params note
     notePoints = [(sx, sy), (sx, ey), (ex, sy), (ex, ey)]
+
+    (selsx, selex) = (Basics.min selx1 selx2, Basics.max selx1 selx2)
+    (selsy, seley) = (Basics.min sely1 sely2, Basics.max sely1 sely2)
+
   in
     notePoints
       |> List.map (\(x, y) -> selsx <= x && x <= selex && selsy <= y && y <= seley)

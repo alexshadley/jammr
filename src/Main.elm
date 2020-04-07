@@ -341,15 +341,39 @@ playButton model =
         Just _  -> StopPlayback
         Nothing -> PlayTrack
   in
-    Input.button [onClick action, centerX] {onPress = Just PlayTrack, label = text buttonText}
+    Input.button buttonAttr {onPress = Just action, label = text buttonText}
 
 modeButton : Model -> Element Msg
 modeButton model =
-  row
-    []
-    [ Input.button [] {onPress = Just (SetMode Painting), label = text "Paint"}
-    , Input.button [] {onPress = Just (SetMode (Selecting SelectingBox)), label = text "Select"}
-    ]
+  let
+    (paintStyle, selectStyle) =
+      case model.uiMode of
+        Painting ->    (primaryButtonAttr, buttonAttr)
+        Selecting _ -> (buttonAttr, primaryButtonAttr)
+  in
+    row
+      [ centerX, spacing 20 ]
+      [ text "Mode:"
+      , Input.button paintStyle {onPress = Just (SetMode Painting), label = text "Paint"}
+      , Input.button selectStyle {onPress = Just (SetMode (Selecting SelectingBox)), label = text "Select"}
+      ]
+
+buttonAttr : List (Attribute msg)
+buttonAttr =
+  [ centerX
+  , padding 6
+  , Border.rounded 5
+  , Border.width 1
+  ]
+
+primaryButtonAttr : List (Attribute msg)
+primaryButtonAttr =
+  [ centerX
+  , padding 6
+  , Border.rounded 5
+  , Border.width 1
+  , Border.color <| rgb255 0 123 255
+  ]
 
 loginOverlay : Model -> Element Msg
 loginOverlay model =
