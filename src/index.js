@@ -121,23 +121,9 @@ synths[0] = new Tone.Sampler(piano, {baseUrl: 'samples/piano/'}).toMaster();
 synths[1] = new Tone.Sampler(bass, {baseUrl: 'samples/bass/'}).toMaster();
 
 
-/*
-ordinarily maintaining state in Elm and JS is a very bad thing to do. I've
-broken the sacred rule here because the browser needs to tell the backend when
-the user navigates away, and there's currently no way to do this in Elm.
-*/
-var user = null;
-
-
 // socket.io connection to server
 var socket = io.connect('http://localhost:5000');
 socket.on('connect', function() {
-});
-
-window.addEventListener('beforeunload', (event) => {
-    if (user !== null) {
-        socket.emit('remove_user', user)
-    }
 });
 
 socket.on('set_notes', (message) => {
@@ -167,7 +153,6 @@ socket.on('set_users', (message) => {
 
 socket.on('user_registered', (message) => {
     console.log(message)
-    user = message['name']
     app.ports.userRegisteredFromServer.send(message);
 });
 

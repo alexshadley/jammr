@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_socketio import SocketIO, emit
 
 import json
@@ -55,7 +55,7 @@ def add_user(message):
 
     base = random.randrange(512)
     color = [transform_color(c) for c in [base, base + 128, base + 256]]
-    users[message['name']] = {'name': message['name'], 'color': color}
+    users[message['name']] = {'name': message['name'], 'color': color, 'sid': request.sid}
 
     emit('user_registered', users[message['name']])
     emit('set_users', [user for _, user in users.items()], broadcast=True)
@@ -76,9 +76,14 @@ def test_connect():
     print('Client connected')
 
     emit('set_notes', {'notes': [note for _, note in notes.items()]})
+    emit('set_users', [user for _, user in users.items()])
 
 @socketio.on('disconnect')
 def test_disconnect():
+    user = [u for u in users.values() if u['sid'] == request.sid][0]
+    del users[user['name']]
+    emit('set_users', [user for _, user in users.items()], broadcast=True)
+
     print('Client disconnected')
 
 if __name__ == '__main__':
