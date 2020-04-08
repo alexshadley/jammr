@@ -155,9 +155,9 @@ socket.on('update_notes', (message) => {
     app.ports.updateNotesFromServer.send(message);
 });
 
-socket.on('remove_note', (message) => {
+socket.on('remove_notes', (message) => {
     console.log(message)
-    app.ports.removeNoteFromServer.send(message);
+    app.ports.removeNotesFromServer.send(message);
 });
 
 socket.on('set_users', (message) => {
@@ -185,8 +185,8 @@ app.ports.updateNotes.subscribe(notes => {
     socket.emit('update_notes', notes)
 })
 
-app.ports.removeNote.subscribe(note => {
-    socket.emit('remove_note', note)
+app.ports.removeNotes.subscribe(note => {
+    socket.emit('remove_notes', note)
 })
 
 app.ports.addUser.subscribe(user => {

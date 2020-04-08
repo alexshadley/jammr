@@ -5,7 +5,7 @@ import Browser.Events
 import Dict
 import Set
 import Html exposing (Html)
-import Json.Decode as Decode exposing (Decoder, field, float, int, string)
+import Json.Decode as Decode exposing (Decoder, field, float, int, string, list)
 import Task
 import Time
 import Process
@@ -77,7 +77,7 @@ update msg model =
       ( model, playNotes [ generatePitchInst voice pitch ] )
 
     RemoveNote id ->
-      ( { model | track = Track.removeNote id model.track}, removeNote {id = id} )
+      ( { model | track = Track.removeNote id model.track}, removeNotes {notes = [id]} )
     
     StartDrawing voice pitch x ->
       ( { model | 
@@ -259,7 +259,7 @@ update msg model =
             newTrack =
               Set.foldr (\id track -> Track.removeNote id track) model.track model.selectedNotes
           in
-            ( { model | track = newTrack }, Cmd.none )
+            ( { model | track = newTrack }, removeNotes { notes = Set.toList model.selectedNotes } )
 
         _ -> 
           ( model, Cmd.none )
@@ -287,13 +287,11 @@ update msg model =
       in
         ({model | track = newTrack}, Cmd.none)
       
-    RemoveNoteFromServer result ->
-      case result of
-        Just id ->
-          ({model | track = Track.removeNote id model.track}, Cmd.none)
-        
-        Nothing ->
-          (model, Cmd.none)
+    RemoveNotesFromServer notes ->
+      let
+        newTrack = List.foldr (\id track -> Track.removeNote id track) model.track notes
+      in
+        ({model | track = newTrack}, Cmd.none)
 
     SetUsersFromServer users ->
       let
@@ -474,13 +472,13 @@ userRow user =
 port setNotesFromServer : (Decode.Value -> msg) -> Sub msg
 port addNoteFromServer : (Decode.Value -> msg) -> Sub msg
 port updateNotesFromServer : (Decode.Value -> msg) -> Sub msg
-port removeNoteFromServer : (Decode.Value -> msg) -> Sub msg
+port removeNotesFromServer : (Decode.Value -> msg) -> Sub msg
 port setUsersFromServer : (Decode.Value -> msg) -> Sub msg
 port userRegisteredFromServer : (Decode.Value -> msg) -> Sub msg
 
 port addNote : {id: Int, pitch: Pitch, start: Float, duration: Float, user: Maybe String, voice: Voice} -> Cmd msg
 port updateNotes : {notes: List {id: Int, pitch: Pitch, start: Float, duration: Float, user: Maybe String, voice: Voice}} -> Cmd msg
-port removeNote : {id: Int} -> Cmd msg
+port removeNotes : {notes: List Int} -> Cmd msg
 port addUser : {name: String} -> Cmd msg
 port removeUser : {name: String} -> Cmd msg
 
@@ -504,29 +502,23 @@ subscriptions model =
       ( [ setNotesFromServer (decodeNotes >> SetNotesFromServer)
         , addNoteFromServer (decodeNote >> AddNoteFromServer)
         , updateNotesFromServer (decodeNotes >> UpdateNotesFromServer)
-        , removeNoteFromServer (decodeDelId >> RemoveNoteFromServer)
+        , removeNotesFromServer (decodeDelIds >> RemoveNotesFromServer)
         , setUsersFromServer (decodeUsers >> SetUsersFromServer)
         , userRegisteredFromServer (decodeUser >> UserRegisteredFromServer)
         , Browser.Events.onKeyDown keyDecoder
         ] ++ tick
       )
 
-{-decodeKey : Decode.Value -> Maybe String
-decodeKey v =
-  case Decode.decodeValue keyDecoder v of
-    Ok key -> Just key
-    Err e -> Debug.log (Decode.errorToString e) Nothing-}
-
 keyDecoder : Decode.Decoder Msg
 keyDecoder =
   Decode.map (\s -> KeyPressed s)
     (field "key" string)
 
-decodeDelId : Decode.Value -> Maybe Int
-decodeDelId v =
-  case Decode.decodeValue (field "id" int) v of
-    Ok id -> Just id
-    Err e -> Debug.log (Decode.errorToString e) Nothing
+decodeDelIds : Decode.Value -> List Int
+decodeDelIds v =
+  case Decode.decodeValue (field "notes" (list int)) v of
+    Ok ids -> ids
+    Err e -> Debug.log (Decode.errorToString e) []
 
 decodeNotes : Decode.Value -> List (Int, Note)
 decodeNotes v =

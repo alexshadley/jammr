@@ -41,6 +41,6 @@ type Msg
     | SetNotesFromServer (List (Int, Note))
     | AddNoteFromServer (Maybe (Int, Note))
     | UpdateNotesFromServer (List (Int, Note))
-    | RemoveNoteFromServer (Maybe Int)
+    | RemoveNotesFromServer (List Int)
     | UserRegisteredFromServer (Maybe User)
     | SetUsersFromServer (List User)

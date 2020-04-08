@@ -38,12 +38,14 @@ def update_notes(message):
     emit('update_notes', message, broadcast=True)
     print('notes updated')
 
-@socketio.on('remove_note')
+@socketio.on('remove_notes')
 def remove_note(message):
-    del notes[message['id']]
-    emit('remove_note', {'id': message['id']}, broadcast=True)
+    for id in message['notes']:
+        del notes[id]
 
-    print('note removed')
+    emit('remove_notes', message, broadcast=True)
+
+    print('notes removed')
 
 @socketio.on('add_user')
 def add_user(message):
