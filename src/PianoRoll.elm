@@ -106,13 +106,18 @@ noteStyling : Model -> Maybe User -> Int -> List (Svg.Attribute msg)
 noteStyling model user id =
   let
     (fillColor, borderColor) =
-      case (Set.member id model.selectedNotes, user) of
-        (True, _)        -> (selectionColor, selectionColor)
-        (False, Just u)  -> getUserColors u
-        (False, Nothing) -> (defaultColor, defaultColor)
+      case user of
+        Just u  -> getUserColors u
+        Nothing -> (defaultColor, defaultColor)
+    
+    opacityVal =
+      case (Set.isEmpty model.selectedNotes, Set.member id model.selectedNotes) of
+        (False, False) -> 0.5
+        _              -> 1.0
 
   in
     [ fill fillColor
+    , opacity (String.fromFloat opacityVal)
     , stroke borderColor
     , strokeWidth "1.5"
     , rx "5"
