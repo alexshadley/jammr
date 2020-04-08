@@ -1,6 +1,7 @@
 port module Main exposing (..)
 
 import Browser
+import Browser.Events
 import Dict
 import Set
 import Html exposing (Html)
@@ -70,7 +71,7 @@ update msg model =
       ( { model | playbackBeat = Nothing }, stopPlayback () )
     
     SetMode mode ->
-      ( { model | uiMode = mode}, Cmd.none)
+      ( { model | uiMode = mode, selectedNotes = Set.empty}, Cmd.none)
     
     PlayLabelKey voice pitch ->
       ( model, playNotes [ generatePitchInst voice pitch ] )
@@ -250,7 +251,18 @@ update msg model =
         
           _ ->
             ( model, Cmd.none )
+    
+    KeyPressed key ->
+      case key of
+        "Delete" ->
+          let
+            newTrack =
+              Set.foldr (\id track -> Track.removeNote id track) model.track model.selectedNotes
+          in
+            ( { model | track = newTrack }, Cmd.none )
 
+        _ -> 
+          ( model, Cmd.none )
     
     UpdateBeat delta ->
       ( { model | playbackBeat = Maybe.map (\b -> b + delta) model.playbackBeat}, Cmd.none )
@@ -495,8 +507,20 @@ subscriptions model =
         , removeNoteFromServer (decodeDelId >> RemoveNoteFromServer)
         , setUsersFromServer (decodeUsers >> SetUsersFromServer)
         , userRegisteredFromServer (decodeUser >> UserRegisteredFromServer)
+        , Browser.Events.onKeyDown keyDecoder
         ] ++ tick
       )
+
+{-decodeKey : Decode.Value -> Maybe String
+decodeKey v =
+  case Decode.decodeValue keyDecoder v of
+    Ok key -> Just key
+    Err e -> Debug.log (Decode.errorToString e) Nothing-}
+
+keyDecoder : Decode.Decoder Msg
+keyDecoder =
+  Decode.map (\s -> KeyPressed s)
+    (field "key" string)
 
 decodeDelId : Decode.Value -> Maybe Int
 decodeDelId v =

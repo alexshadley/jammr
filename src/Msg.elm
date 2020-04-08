@@ -34,6 +34,7 @@ type Msg
     | MoveNoteMove (Float, Float)
     | EndNoteMove (Float, Float)
 
+    | KeyPressed (String)
 
     | UpdateBeat Float
     -- network
