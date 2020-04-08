@@ -28,6 +28,8 @@ type alias Note =
   , voice : Voice
   }
 
+-- TODO: enforce Track abstraction
+-- TODO: key notes on id and user
 type alias Track = 
   { notes: Dict Int Note
   , nextId: Int }

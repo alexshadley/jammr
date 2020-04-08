@@ -244,7 +244,7 @@ update msg model =
                   (\(id, newNote) -> { id = id, pitch = newNote.pitch, start = newNote.start, duration = newNote.duration, user = newNote.user, voice = newNote.voice } )
                   updatedNotes
             in
-              ( { model | uiMode = Selecting SelectingBox, track = newTrack}
+              ( { model | uiMode = Selecting SelectingBox, track = newTrack, selectedNotes = Set.empty }
               , updateNotes {notes = payloadNotes}
               )
         
