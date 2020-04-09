@@ -30,9 +30,16 @@ import PianoRoll
 init : ( Model, Cmd Msg )
 init =
     ( { pianoRolls =
-        [ {rollHeight=700, voice=0, topPitch=48, pitches=25}
-        , {rollHeight=700, voice=1, topPitch=60, pitches=25}
-        , {rollHeight=350, voice=2, topPitch=54, pitches=12}
+        [ {rollHeight=500, voice=0, topPitch=48, pitches=25, unpitchedVoices=Nothing}
+        , {rollHeight=500, voice=1, topPitch=60, pitches=25, unpitchedVoices=Nothing}
+        --, {rollHeight=350, voice=2, topPitch=54, pitches=12, unpitchedVoices=Nothing}
+        , { rollHeight=100, voice=2, topPitch=48, pitches=5, unpitchedVoices=Just
+          [ "Cowbell"
+          , "Crash"
+          , "Hi Hat"
+          , "Kick"
+          , "Snare"
+          ] }
         ]
       , track = Track.empty
       , uiMode = Painting
@@ -181,8 +188,7 @@ update msg model =
           Just (selection, params) ->
             let
               finalParams = PianoRoll.calcParams params
-              (sx, sy) = selection.start
-              finalSelection = ((sx, sy), (x, y))
+              finalSelection = { selection | end = (x, y)}
 
               selectedNotes = 
                 Dict.toList model.track.notes

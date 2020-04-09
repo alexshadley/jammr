@@ -123,6 +123,13 @@ synths[1] = new Tone.Sampler(bass, {baseUrl: 'samples/bass/'}).toMaster();
 synths[0].volume.value = -6;
 synths[1].volume.value = -6;
 
+var unpitched = []
+unpitched['C3'] = new Tone.Player('samples/drum/snare.wav').toMaster();
+unpitched['B2'] = new Tone.Player('samples/drum/kick.wav').toMaster();
+unpitched['A#2'] = new Tone.Player('samples/drum/hi-hat.wav').toMaster();
+unpitched['A2'] = new Tone.Player('samples/drum/crash.wav').toMaster();
+unpitched['G#2'] = new Tone.Player('samples/drum/cowbell.wav').toMaster();
+
 // socket.io connection to server
 var socket = io.connect('http://localhost:5000');
 socket.on('connect', function() {
@@ -197,10 +204,18 @@ function stopPlayback() {
 function playNote(pitch, start, duration, voice) {
     // transport is used here because of a suspected bug in tonejs. For
     // whatever reason, triggerAttackRelease is broken for sampler
-    Tone.Transport.schedule(function(time) {
-        synths[voice].triggerAttack(pitch, time);
-    }, start);
-    Tone.Transport.schedule(function(_) {
-        synths[voice].triggerRelease(pitch);
-    }, start + duration);
+
+    if (voice <= 1) {
+        Tone.Transport.schedule(function(time) {
+            synths[voice].triggerAttack(pitch, time);
+        }, start);
+        Tone.Transport.schedule(function(time) {
+            synths[voice].triggerRelease(pitch, time);
+        }, start + duration);
+    }
+    else {
+        Tone.Transport.schedule(function(time) {
+            unpitched[pitch].start(time);
+        }, start);
+    }
 }

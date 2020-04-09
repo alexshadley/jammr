@@ -16,7 +16,7 @@ import Track exposing (..)
 import User exposing (User)
 
 rollWidth = 1000
-labelWidth = 50
+labelWidth = 90
 
 beatCount = 24
 subdivisions = 4
@@ -72,19 +72,26 @@ calcOffsetPitches params dy =
 {-| Calculates the four points of a note, checks to see if at least one is in
 the provided selection box
 -}
-noteInSelection : Params -> ((Float, Float), (Float, Float)) -> Note -> Bool
-noteInSelection params ((selx1, sely1), (selx2, sely2)) note =
+noteInSelection : Params -> BoxSelection -> Note -> Bool
+noteInSelection params selection note =
   let
     ((sx, sy), (ex, ey)) = calcNotePos params note
     notePoints = [(sx, sy), (sx, ey), (ex, sy), (ex, ey)]
+
+    (selx1, sely1) = selection.start
+    (selx2, sely2) = selection.end
 
     (selsx, selex) = (Basics.min selx1 selx2, Basics.max selx1 selx2)
     (selsy, seley) = (Basics.min sely1 sely2, Basics.max sely1 sely2)
 
   in
-    notePoints
-      |> List.map (\(x, y) -> selsx <= x && x <= selex && selsy <= y && y <= seley)
-      |> List.member True
+    if selection.voice == note.voice then
+      notePoints
+        |> List.map (\(x, y) -> selsx <= x && x <= selex && selsy <= y && y <= seley)
+        |> List.member True
+
+    else
+      False
   
 
 -- gives fill and border colors
@@ -133,6 +140,7 @@ type alias Params =
   , pitches    : Int
   , laneHeight : Float
   , cellWidth  : Float
+  , unpitchedVoices : Maybe (List String)
   }
 
 calcParams : InputParams -> Params
@@ -143,6 +151,7 @@ calcParams input =
   , pitches = input.pitches
   , laneHeight = toFloat input.rollHeight / toFloat input.pitches
   , cellWidth = rollWidth / beatCount
+  , unpitchedVoices = input.unpitchedVoices
   }
 
 pianoRoll : Model -> InputParams -> Element.Element Msg
@@ -177,22 +186,27 @@ selectionBox : Model -> Params -> Svg msg
 selectionBox model params =
   case model.currentSelection of
     Just selection ->
-      let
-        (sx, sy) = selection.start
-        (ex, ey) = selection.end
+      case selection.voice == params.voice of
+        True ->
+          let
+            (sx, sy) = selection.start
+            (ex, ey) = selection.end
 
-        (xVal, yVal) = (Basics.min sx ex, Basics.min sy ey)
-        (widthVal, heightVal) = (abs (sx - ex), abs (sy - ey))
-      in
-        rect
-          [ x (String.fromFloat xVal)
-          , y (String.fromFloat yVal)
-          , width (String.fromFloat widthVal)
-          , height (String.fromFloat heightVal)
-          , stroke "black"
-          , fill "rgba(255, 255, 255, 0)"
-          ]
-          []
+            (xVal, yVal) = (Basics.min sx ex, Basics.min sy ey)
+            (widthVal, heightVal) = (abs (sx - ex), abs (sy - ey))
+          in
+            rect
+              [ x (String.fromFloat xVal)
+              , y (String.fromFloat yVal)
+              , width (String.fromFloat widthVal)
+              , height (String.fromFloat heightVal)
+              , stroke "black"
+              , fill "rgba(255, 255, 255, 0)"
+              ]
+              []
+
+        False ->
+          g [] []
 
     Nothing ->
       g [] []
@@ -355,12 +369,16 @@ splitAlternating xs =
     right = tagged |> List.filter (Tuple.first >> (\x -> modBy 2 x == 1)) |> List.map Tuple.second
   in
     (left, right)
-    
+
+
 pitchLanes : Params -> Svg Msg
 pitchLanes params = 
   let
-    pitches = List.range (params.topPitch - params.pitches) params.topPitch
-    lanes = List.map (pitchRow params) pitches
+    pitches = List.range (params.topPitch - params.pitches + 1) params.topPitch
+    lanes =
+      case params.unpitchedVoices of
+        Just labels -> List.map2 (unpitchedRow params) pitches labels
+        Nothing     -> List.map (pitchRow params) pitches
     (white, gray) = splitAlternating lanes
 
   in
@@ -368,6 +386,27 @@ pitchLanes params =
       [ g [ color "white" ] white
       , g [ color "lightgray" ] gray
       ]
+
+    
+unpitchedRow : Params -> Pitch -> String -> Svg Msg
+unpitchedRow params pitch name =
+  g []
+    [ pitchLane params pitch
+    , unpitchedLabel params pitch name
+    ]
+
+unpitchedLabel : Params -> Pitch -> String -> Svg Msg
+unpitchedLabel params pitch name =
+  let
+    yVal = toFloat (params.topPitch - pitch) * params.laneHeight + ((4.0 / 5.0) * params.laneHeight)
+  in
+    text_
+      [ x (String.fromInt -labelWidth)
+      , y (String.fromFloat yVal)
+      , fill "black"
+      , Mouse.onDown (\_ -> PlayLabelKey params.voice pitch)
+      ] [ text name ]
+    
 
 pitchRow : Params -> Int -> Svg Msg
 pitchRow params pitch =

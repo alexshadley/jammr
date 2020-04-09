@@ -11,6 +11,8 @@ type alias InputParams =
   , voice: Int
   , topPitch: Int
   , pitches: Int
+  -- if set, overrides other settings
+  , unpitchedVoices: Maybe (List String)
   }
 
 type SelectingMode = SelectingBox | Moving {start: (Float, Float), end: (Float, Float)}
