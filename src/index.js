@@ -117,9 +117,11 @@ var bass = {
 }
 
 var synths = []
-synths[0] = new Tone.Sampler(piano, {baseUrl: 'samples/piano/'}).toMaster();
+synths[0] = new Tone.Sampler(piano, {baseUrl: 'samples/piano/' }).toMaster();
 synths[1] = new Tone.Sampler(bass, {baseUrl: 'samples/bass/'}).toMaster();
 
+synths[0].volume.value = -6;
+synths[1].volume.value = -6;
 
 // socket.io connection to server
 var socket = io.connect('http://localhost:5000');
@@ -160,8 +162,6 @@ const app = Elm.Main.init({
     node: document.querySelector('main')
 })
 
-console.log(app.ports);
-
 app.ports.addNote.subscribe(note => {
     socket.emit('add_note', note)
 })
@@ -197,8 +197,8 @@ function stopPlayback() {
 function playNote(pitch, start, duration, voice) {
     // transport is used here because of a suspected bug in tonejs. For
     // whatever reason, triggerAttackRelease is broken for sampler
-    Tone.Transport.schedule(function(_) {
-        synths[voice].triggerAttack(pitch);
+    Tone.Transport.schedule(function(time) {
+        synths[voice].triggerAttack(pitch, time);
     }, start);
     Tone.Transport.schedule(function(_) {
         synths[voice].triggerRelease(pitch);
