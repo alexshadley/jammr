@@ -80,6 +80,9 @@ update msg model =
     SetMode mode ->
       ( { model | uiMode = mode, selectedNotes = Set.empty}, Cmd.none)
     
+    ChangeBPM bpm ->
+      ( { model | bpm = bpm}, Cmd.none)
+    
     PlayLabelKey voice pitch ->
       ( model, playNotes [ generatePitchInst voice pitch ] )
 
@@ -202,12 +205,32 @@ update msg model =
             ( model, Cmd.none )
 
     StartNoteMove (x, y) ->
-      ( { model | uiMode = Selecting (Moving {start = (x, y), end = (x, y)}) }, Cmd.none )
+      let
+        selectMode =
+          case model.uiMode of
+            Selecting mode _ -> mode
+            _                -> Moving
+      in
+        case selectMode of
+          Moving ->
+            ( { model | uiMode = Selecting selectMode (Just {start = (x, y), end = (x, y)}) }, Cmd.none )
+          
+          Copying ->
+            let
+              (newTrack, newSelection) = Track.duplicateNotes (Set.toList model.selectedNotes) model.track
+            in
+              ( { model
+                | uiMode = Selecting selectMode (Just {start = (x, y), end = (x, y)})
+                , selectedNotes = Set.fromList newSelection
+                , track = newTrack
+                }
+              , Cmd.none )
+            
 
     MoveNoteMove (x, y) ->
       case model.uiMode of
-        Selecting (Moving noteMove) ->
-          ( { model | uiMode = Selecting (Moving {noteMove | end = (x, y)}) }, Cmd.none )
+        Selecting oldMode (Just noteMove) ->
+          ( { model | uiMode = Selecting oldMode (Just {noteMove | end = (x, y)}) }, Cmd.none )
 
         _ ->
           ( model, Cmd.none )
@@ -228,7 +251,7 @@ update msg model =
 
       in
         case (selectionParameters, model.uiMode) of
-          (Just params, Selecting (Moving noteMove)) ->
+          (Just params, Selecting oldMode (Just noteMove)) ->
             let
               finalParams = PianoRoll.calcParams params
               ((sx, sy), (ex, ey)) = (noteMove.start, noteMove.end)
@@ -251,7 +274,7 @@ update msg model =
                   (\(id, newNote) -> { id = id, pitch = newNote.pitch, start = newNote.start, duration = newNote.duration, user = newNote.user, voice = newNote.voice } )
                   updatedNotes
             in
-              ( { model | uiMode = Selecting SelectingBox, track = newTrack, selectedNotes = Set.empty }
+              ( { model | uiMode = Selecting oldMode Nothing, track = newTrack, selectedNotes = Set.empty }
               , updateNotes {notes = payloadNotes}
               )
         
@@ -260,6 +283,26 @@ update msg model =
     
     KeyPressed key ->
       case key of
+        " " ->
+          case model.playbackBeat of
+            Just _  ->
+              ( { model | playbackBeat = Nothing }, stopPlayback () )
+
+            Nothing ->
+              ( { model | playbackBeat = Just 0.0 }, playNotes (generateInstructions model.bpm model.track ) )
+        
+        "m" ->
+          ( { model | uiMode = Selecting Moving Nothing, selectedNotes = Set.empty}, Cmd.none)
+
+        "c" ->
+          ( { model | uiMode = Selecting Copying Nothing, selectedNotes = Set.empty}, Cmd.none)
+
+        "d" ->
+          ( { model | uiMode = Painting, selectedNotes = Set.empty}, Cmd.none)
+        
+        "Escape" ->
+          ( { model | selectedNotes = Set.empty}, Cmd.none)
+
         "Delete" ->
           let
             newTrack =
@@ -338,7 +381,10 @@ view model =
             , spacing 50 
             ]
             ( [ playButton model
-              , modeButton model
+              , row [ spacing 50, centerX ]
+                [ modeButton model
+                , bpmSlider model
+                ]
               ] ++ List.map (PianoRoll.pianoRoll model) model.pianoRolls
             )
           , el [ alignRight, alignTop, moveLeft 50, moveDown 100 ] (usersWidget model)
@@ -362,16 +408,18 @@ playButton model =
 modeButton : Model -> Element Msg
 modeButton model =
   let
-    (paintStyle, selectStyle) =
+    (paintStyle, moveStyle, copyStyle) =
       case model.uiMode of
-        Painting ->    (primaryButtonAttr, buttonAttr)
-        Selecting _ -> (buttonAttr, primaryButtonAttr)
+        Painting ->    (primaryButtonAttr, buttonAttr, buttonAttr)
+        Selecting Moving _ -> (buttonAttr, primaryButtonAttr, buttonAttr)
+        Selecting Copying _ -> (buttonAttr, buttonAttr, primaryButtonAttr)
   in
     row
-      [ centerX, spacing 20 ]
+      [ spacing 20 ]
       [ text "Mode:"
       , Input.button paintStyle {onPress = Just (SetMode Painting), label = text "Paint"}
-      , Input.button selectStyle {onPress = Just (SetMode (Selecting SelectingBox)), label = text "Select"}
+      , Input.button moveStyle {onPress = Just (SetMode (Selecting Moving Nothing)), label = text "Move"}
+      , Input.button copyStyle {onPress = Just (SetMode (Selecting Copying Nothing)), label = text "Copy"}
       ]
 
 buttonAttr : List (Attribute msg)
@@ -390,6 +438,31 @@ primaryButtonAttr =
   , Border.width 1
   , Border.color <| rgb255 0 123 255
   ]
+
+bpmSlider : Model -> Element Msg
+bpmSlider model =
+  Input.slider
+    [ width (px 300)
+    , behindContent
+      ( el
+        [ width fill
+        , height (px 2)
+        , centerY
+        , Background.color <| rgb255 190 190 190
+        , Border.rounded 2
+        ] none
+      )
+    ]
+    { onChange = ChangeBPM
+    , label =
+        Input.labelAbove [] (text ("BPM: " ++ (String.fromInt <| round model.bpm)))
+    , min = 40
+    , max = 240
+    , step = Nothing
+    , value = model.bpm
+    , thumb = Input.defaultThumb
+    }
+
 
 loginOverlay : Model -> Element Msg
 loginOverlay model =

@@ -15,8 +15,9 @@ type alias InputParams =
   , unpitchedVoices: Maybe (List String)
   }
 
-type SelectingMode = SelectingBox | Moving {start: (Float, Float), end: (Float, Float)}
-type UIMode = Painting | Selecting SelectingMode
+-- mode and mode-specific state need to be managed more reasonably
+type SelectingMode = Moving | Copying
+type UIMode = Painting | Selecting SelectingMode (Maybe {start: (Float, Float), end: (Float, Float)})
 
 type alias CurrentNote =
   { voice         : Voice

@@ -217,14 +217,14 @@ controlOverlay model params =
   let
     children =
       case model.uiMode of
-        Selecting SelectingBox ->
+        Selecting _ Nothing ->
           let
             selectedNotes = Track.getNotes (Set.toList model.selectedNotes) model.track
           in
             [ baseOverlay model params ] ++
             ( List.map (noteHandle model params) selectedNotes )
 
-        Selecting (Moving _) ->
+        Selecting _ (Just _) ->
           [ baseOverlay model params ]
         
         _ -> []
@@ -237,13 +237,13 @@ baseOverlay model params =
   let
     actions =
       case model.uiMode of
-        Selecting SelectingBox ->
+        Selecting _ Nothing ->
           [ Mouse.onDown (\e -> StartSelection params.voice e.offsetPos)
           , Mouse.onMove (\e -> MoveSelection e.offsetPos)
           , Mouse.onUp (\e -> EndSelection e.offsetPos)
           ]
         
-        Selecting (Moving _) ->
+        Selecting _ (Just _) ->
           [ Mouse.onMove (\e -> MoveNoteMove e.offsetPos)
           , Mouse.onUp (\e -> EndNoteMove e.offsetPos)
           ]
@@ -340,7 +340,7 @@ rollNote model params (id, note) =
     ((sx, sy), (ex, ey)) = calcNotePos params note
     (xOffset, yOffset) =
       case (model.uiMode, Set.member id model.selectedNotes) of
-        (Selecting (Moving {start, end}), True) ->
+        (Selecting _ (Just {start, end}), True) ->
           let
             ((msx, msy), (mex, mey)) = (start, end)
           in

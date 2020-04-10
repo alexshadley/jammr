@@ -9,6 +9,12 @@ var voices = [
     { 'A4': 'samples/piano/A4.mp3' }
 ]
 
+window.onkeydown = (e) => {
+    if ( e.which == 32 ) {
+        e.preventDefault();
+    }
+}
+
 var piano = {
     'A0': 'A0.[mp3|ogg]',
     'A1': 'A1.[mp3|ogg]',

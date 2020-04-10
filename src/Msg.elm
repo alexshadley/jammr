@@ -14,6 +14,7 @@ type Msg
     | PlayTrack
     | StopPlayback
     | SetMode UIMode
+    | ChangeBPM Float
     | PlayLabelKey Voice Pitch
 
     | RemoveNote Int
