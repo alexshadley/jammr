@@ -27,7 +27,7 @@ def add_note(message):
 @socketio.on('update_notes')
 def update_notes(message):
     for note in message['notes']:
-        notes[(note['id'], message['user'])] = {
+        notes[(note['id'], note['user'])] = {
             'id': note['id'],
             'pitch': note['pitch'],
             'start': note['start'],
