@@ -41,7 +41,7 @@ type alias Model =
   , currentNote : Maybe CurrentNote
   , lastNoteBeats : Float
   , currentSelection : Maybe BoxSelection
-  , selectedNotes : Set Int
+  , selectedNotes : Set NoteId
   -- `Maybe` because the user may not have logged in yet
   , currentUser : Maybe User
   , users : Dict String User

@@ -109,7 +109,7 @@ getUserColors user =
         )
 
 
-noteStyling : Model -> Maybe User -> Int -> List (Svg.Attribute msg)
+noteStyling : Model -> Maybe User -> Maybe NoteId -> List (Svg.Attribute msg)
 noteStyling model user id =
   let
     (fillColor, borderColor) =
@@ -118,7 +118,7 @@ noteStyling model user id =
         Nothing -> (defaultColor, defaultColor)
     
     opacityVal =
-      case (Set.isEmpty model.selectedNotes, Set.member id model.selectedNotes) of
+      case (Set.isEmpty model.selectedNotes, Set.member (Maybe.withDefault (-1, "") id) model.selectedNotes) of
         (False, False) -> 0.5
         _              -> 1.0
 
@@ -314,9 +314,9 @@ currentNote model params =
                 , y (String.fromFloat yVal)
                 , width (String.fromFloat widthVal)
                 , height (String.fromFloat params.laneHeight)
-                , Mouse.onMove (\event -> MoveDrawingOnNote (Tuple.first event.offsetPos) )
-                , Mouse.onUp (\event -> EndDrawingOnNote (Tuple.first event.offsetPos) )
-                ] ++ noteStyling model model.currentUser -1
+                , Mouse.onMove (\event -> MoveDrawing (xVal + Tuple.first event.offsetPos) )
+                , Mouse.onUp (\event -> EndDrawing (xVal + Tuple.first event.offsetPos) )
+                ] ++ noteStyling model model.currentUser Nothing
               ) []
         
         False ->
@@ -334,7 +334,7 @@ rollNotes model params =
   in
     g [] (List.map (rollNote model params) notes)
 
-rollNote : Model -> Params -> (Int, Note) -> Svg Msg
+rollNote : Model -> Params -> ((Int, String), Note) -> Svg Msg
 rollNote model params (id, note) =
   let
     ((sx, sy), (ex, ey)) = calcNotePos params note
@@ -347,10 +347,10 @@ rollNote model params (id, note) =
             ( calcOffsetBeats params (mex - msx) * params.cellWidth
             , toFloat ( calcOffsetPitches params (mey - msy) ) * params.laneHeight
             )
-        
+
         _ -> (0.0, 0.0)
 
-    user = note.user |> Maybe.andThen (\name -> Dict.get name model.users)
+    user = Dict.get note.user model.users
   in
     rect 
       ( [ x (String.fromFloat (sx + xOffset))
@@ -358,7 +358,7 @@ rollNote model params (id, note) =
         , width (String.fromFloat (ex - sx))
         , height (String.fromFloat (ey - sy))
         , onClick (RemoveNote id)
-        ] ++ noteStyling model user id
+        ] ++ noteStyling model user (Just id)
       ) []
 
 splitAlternating : List a -> (List a, List a)

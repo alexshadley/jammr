@@ -17,15 +17,15 @@ type Msg
     | ChangeBPM Float
     | PlayLabelKey Voice Pitch
 
-    | RemoveNote Int
+    | RemoveNote NoteId
     | StartDrawing Voice Pitch Float
     | MoveDrawing Float
     | EndDrawing Float
     {- these hacks are necessary because mouse offset is always calculated
     from the parent, which messes up our math if it's the note being drawn
      -}
-    | MoveDrawingOnNote Float
-    | EndDrawingOnNote Float
+    {- MoveDrawingOnNote Float
+    | EndDrawingOnNote Float-}
 
     | StartSelection Voice (Float, Float)
     | MoveSelection (Float, Float)
@@ -39,9 +39,9 @@ type Msg
 
     | UpdateBeat Float
     -- network
-    | SetNotesFromServer (List (Int, Note))
-    | AddNoteFromServer (Maybe (Int, Note))
-    | UpdateNotesFromServer (List (Int, Note))
-    | RemoveNotesFromServer (List Int)
+    | SetNotesFromServer (List (NoteId, Note))
+    | AddNoteFromServer (Maybe (NoteId, Note))
+    | UpdateNotesFromServer (List (NoteId, Note))
+    | RemoveNotesFromServer (List NoteId)
     | UserRegisteredFromServer (Maybe User)
     | SetUsersFromServer (List User)

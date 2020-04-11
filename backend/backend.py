@@ -13,21 +13,21 @@ notes = {}
 
 @socketio.on('add_note')
 def add_note(message):
-    notes[message['id']] = {
+    notes[(message['id'], message['user'])] = {
         'id': message['id'],
         'pitch': message['pitch'],
         'start': message['start'],
         'duration': message['duration'],
         'user': message['user'],
         'voice': message['voice'] }
-    emit('add_note', notes[message['id']], broadcast=True)
+    emit('add_note', message, broadcast=True)
 
     print('note added')
 
 @socketio.on('update_notes')
 def update_notes(message):
     for note in message['notes']:
-        notes[note['id']] = {
+        notes[(note['id'], message['user'])] = {
             'id': note['id'],
             'pitch': note['pitch'],
             'start': note['start'],
@@ -41,7 +41,7 @@ def update_notes(message):
 @socketio.on('remove_notes')
 def remove_note(message):
     for id in message['notes']:
-        del notes[id]
+        del notes[(id[0], id[1])]
 
     emit('remove_notes', message, broadcast=True)
 

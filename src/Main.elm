@@ -5,7 +5,7 @@ import Browser.Events
 import Dict
 import Set
 import Html exposing (Html)
-import Json.Decode as Decode exposing (Decoder, field, float, int, string, list)
+import Json.Decode as Decode exposing (Decoder, field, float, int, string, list, index)
 import Task
 import Time
 import Process
@@ -126,8 +126,14 @@ update msg model =
         Just ({voice, pitch} as note) ->
           let
             (newStart, newDuration) = PianoRoll.calcStartAndDuration note model.lastNoteBeats
-            newNote = { pitch = pitch, start = newStart, duration = newDuration, user = Maybe.map .name model.currentUser, voice = voice}
-            (newTrack, newId) = Track.addNote newNote model.track
+            newNote = 
+              { pitch = pitch
+              , start = newStart
+              , duration = newDuration
+              , user = Maybe.withDefault "" <| Maybe.map .name model.currentUser
+              , voice = voice}
+
+            (newTrack, (newId, _)) = Track.addNote newNote model.track
           in
             ( { model | currentNote = Nothing, track = newTrack}
             , addNote {id = newId, pitch = newNote.pitch, start = newNote.start, duration = newNote.duration, user = newNote.user, voice = newNote.voice} )
@@ -135,7 +141,7 @@ update msg model =
         Nothing ->
           ( model, Cmd.none)
 
-    MoveDrawingOnNote xCur ->
+    {-MoveDrawingOnNote xCur ->
       let
         newNote =
           Maybe.map (
@@ -159,7 +165,8 @@ update msg model =
           let
             noteUpdated = { note | endX = startX + xFinal }
             (newStart, newDuration) = PianoRoll.calcStartAndDuration noteUpdated model.lastNoteBeats
-            newNote = { pitch = pitch, start = newStart, duration = newDuration, user = Maybe.map .name model.currentUser, voice = voice}
+            newNote =
+              { pitch = pitch, start = newStart, duration = newDuration, user = Maybe.withDefault  model.currentUser, voice = voice}
             (newTrack, newId) = Track.addNote newNote model.track
           in
             ( { model 
@@ -170,7 +177,7 @@ update msg model =
             , addNote {id = newId, pitch = newNote.pitch, start = newNote.start, duration = newNote.duration, user = newNote.user, voice = newNote.voice} )
         
         Nothing ->
-          (model, Cmd.none)
+          (model, Cmd.none)-}
     
     StartSelection voice (x, y) ->
       ( { model | currentSelection = Just {voice = voice, start = (x, y), end = (x, y)}}, Cmd.none )
@@ -271,7 +278,7 @@ update msg model =
               
               payloadNotes =
                 List.map
-                  (\(id, newNote) -> { id = id, pitch = newNote.pitch, start = newNote.start, duration = newNote.duration, user = newNote.user, voice = newNote.voice } )
+                  (\((id, _), newNote) -> { id = id, pitch = newNote.pitch, start = newNote.start, duration = newNote.duration, user = newNote.user, voice = newNote.voice } )
                   updatedNotes
             in
               ( { model | uiMode = Selecting oldMode Nothing, track = newTrack, selectedNotes = Set.empty }
@@ -555,9 +562,9 @@ port removeNotesFromServer : (Decode.Value -> msg) -> Sub msg
 port setUsersFromServer : (Decode.Value -> msg) -> Sub msg
 port userRegisteredFromServer : (Decode.Value -> msg) -> Sub msg
 
-port addNote : {id: Int, pitch: Pitch, start: Float, duration: Float, user: Maybe String, voice: Voice} -> Cmd msg
-port updateNotes : {notes: List {id: Int, pitch: Pitch, start: Float, duration: Float, user: Maybe String, voice: Voice}} -> Cmd msg
-port removeNotes : {notes: List Int} -> Cmd msg
+port addNote : {id: Int, pitch: Pitch, start: Float, duration: Float, user: String, voice: Voice} -> Cmd msg
+port updateNotes : {notes: List {id: Int, pitch: Pitch, start: Float, duration: Float, user: String, voice: Voice}} -> Cmd msg
+port removeNotes : {notes: List NoteId} -> Cmd msg
 port addUser : {name: String} -> Cmd msg
 port removeUser : {name: String} -> Cmd msg
 
@@ -593,27 +600,33 @@ keyDecoder =
   Decode.map (\s -> KeyPressed s)
     (field "key" string)
 
-decodeDelIds : Decode.Value -> List Int
+decodeDelIds : Decode.Value -> List NoteId
 decodeDelIds v =
-  case Decode.decodeValue (field "notes" (list int)) v of
+  case Decode.decodeValue (field "notes" (list idDecoder)) v of
     Ok ids -> ids
     Err e -> Debug.log (Decode.errorToString e) []
 
-decodeNotes : Decode.Value -> List (Int, Note)
+idDecoder : Decoder NoteId
+idDecoder =
+  Decode.map2 (\id name -> (id, name))
+    (index 0 int)
+    (index 1 string)
+
+decodeNotes : Decode.Value -> List (NoteId, Note)
 decodeNotes v =
   case Decode.decodeValue (field "notes" (Decode.list noteDecoder)) v of
     Ok notes -> notes
     Err e -> Debug.log (Decode.errorToString e) []
 
-decodeNote : Decode.Value -> Maybe (Int, Note)
+decodeNote : Decode.Value -> Maybe (NoteId, Note)
 decodeNote v =
   case Decode.decodeValue noteDecoder v of
     Ok note -> Just note
     Err e -> Debug.log (Decode.errorToString e) Nothing
 
-noteDecoder : Decoder (Int, Note)
+noteDecoder : Decoder (NoteId, Note)
 noteDecoder =
-  Decode.map6 (\id p s d u v -> (id, {pitch=p, start=s, duration=d, user=Just u, voice=v}))
+  Decode.map6 (\id p s d u v -> ((id, u), {pitch=p, start=s, duration=d, user=u, voice=v}))
     (field "id" int)
     (field "pitch" int)
     (field "start" float)
