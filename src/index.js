@@ -137,7 +137,8 @@ unpitched['A2'] = new Tone.Player('samples/drum/crash.wav').toMaster();
 unpitched['G#2'] = new Tone.Player('samples/drum/cowbell.wav').toMaster();
 
 // socket.io connection to server
-var socket = io.connect('http://localhost:5000');
+// setting websocket as the only transport somehow fixes heroku stability issues
+var socket = io.connect('http://infinite-everglades-87247.herokuapp.com', {transports: ['websocket']});
 socket.on('connect', function() {
 });
 
