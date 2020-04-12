@@ -7,10 +7,11 @@ import Track exposing (..)
 import User exposing (User)
 
 type alias InputParams =
-  { rollHeight: Int
-  , voice: Int
-  , topPitch: Int
-  , pitches: Int
+  { pagePos    : (Float, Float)
+  , rollHeight : Int
+  , voice      : Voice
+  , topPitch   : Pitch
+  , pitches    : Int
   -- if set, overrides other settings
   , unpitchedVoices: Maybe (List String)
   }

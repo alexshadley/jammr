@@ -134,7 +134,8 @@ noteStyling model user id =
 
 -- also includes calculated values
 type alias Params =
-  { rollHeight : Int
+  { pagePos    : (Float, Float)
+  , rollHeight : Int
   , voice      : Int
   , topPitch   : Int
   , pitches    : Int
@@ -145,7 +146,8 @@ type alias Params =
 
 calcParams : InputParams -> Params
 calcParams input =
-  { rollHeight = input.rollHeight
+  { pagePos = input.pagePos
+  , rollHeight = input.rollHeight
   , voice = input.voice
   , topPitch = input.topPitch
   , pitches = input.pitches
@@ -166,6 +168,7 @@ pianoRoll model input =
           [ width (String.fromInt totalWidth)
           , height (String.fromInt params.rollHeight)
           , viewBox ("-" ++ (String.fromInt labelWidth) ++ " 0 " ++ (String.fromInt totalWidth) ++ " " ++ (String.fromInt params.rollHeight))
+          , id "piano-roll-1"
           ]
           [ pitchLanes params
           , dividers params

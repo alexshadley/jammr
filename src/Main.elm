@@ -2,6 +2,7 @@ port module Main exposing (..)
 
 import Browser
 import Browser.Events
+import Browser.Dom as Dom
 import Dict
 import Set
 import Html exposing (Html)
@@ -30,10 +31,10 @@ import PianoRoll
 init : ( Model, Cmd Msg )
 init =
     ( { pianoRolls =
-        [ {rollHeight=500, voice=0, topPitch=48, pitches=25, unpitchedVoices=Nothing}
-        , {rollHeight=500, voice=1, topPitch=60, pitches=25, unpitchedVoices=Nothing}
+        [ {pagePos=(0, 0), rollHeight=500, voice=0, topPitch=48, pitches=25, unpitchedVoices=Nothing}
+        , {pagePos=(0, 0), rollHeight=500, voice=1, topPitch=60, pitches=25, unpitchedVoices=Nothing}
         --, {rollHeight=350, voice=2, topPitch=54, pitches=12, unpitchedVoices=Nothing}
-        , { rollHeight=100, voice=2, topPitch=48, pitches=5, unpitchedVoices=Just
+        , {pagePos=(0, 0), rollHeight=100, voice=2, topPitch=48, pitches=5, unpitchedVoices=Just
           [ "Cowbell"
           , "Crash"
           , "Hi Hat"
@@ -53,8 +54,17 @@ init =
       , usernameInput = ""
       , playbackBeat = Nothing
       , bpm = 120.0
-    } , Cmd.none )
+    } , getRollPos )
 
+
+getRollPos : Cmd Msg
+getRollPos =
+  Dom.getElement "piano-roll-1"
+    |> Task.attempt (\result ->
+        case result of
+          Ok el -> GotRollPos (el.element.x, el.element.y)
+          Err _ -> GotRollPos (0, 0)
+      )
 
 -- constants
 subdivisions = 4
@@ -65,6 +75,12 @@ subdivisions = 4
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
   case msg of
+    GotRollPos (x, y) ->
+      let
+        rolls = List.map (\r -> { r | pagePos = (x, y) }) model.pianoRolls
+      in
+        ( {model | pianoRolls = rolls}, Cmd.none)
+
     UsernameUpdate new ->
       ( {model | usernameInput = new}, Cmd.none)
     
@@ -604,7 +620,7 @@ decodeDelIds : Decode.Value -> List NoteId
 decodeDelIds v =
   case Decode.decodeValue (field "notes" (list idDecoder)) v of
     Ok ids -> ids
-    Err e -> Debug.log (Decode.errorToString e) []
+    Err e -> []
 
 idDecoder : Decoder NoteId
 idDecoder =
@@ -616,13 +632,13 @@ decodeNotes : Decode.Value -> List (NoteId, Note)
 decodeNotes v =
   case Decode.decodeValue (field "notes" (Decode.list noteDecoder)) v of
     Ok notes -> notes
-    Err e -> Debug.log (Decode.errorToString e) []
+    Err e -> []
 
 decodeNote : Decode.Value -> Maybe (NoteId, Note)
 decodeNote v =
   case Decode.decodeValue noteDecoder v of
     Ok note -> Just note
-    Err e -> Debug.log (Decode.errorToString e) Nothing
+    Err e -> Nothing
 
 noteDecoder : Decoder (NoteId, Note)
 noteDecoder =
@@ -638,13 +654,13 @@ decodeUsers : Decode.Value -> List User
 decodeUsers v =
   case Decode.decodeValue (Decode.list userDecoder) v of
     Ok users -> users
-    Err e -> Debug.log (Decode.errorToString e) []
+    Err e -> []
 
 decodeUser : Decode.Value -> Maybe User
 decodeUser v =
   case Decode.decodeValue userDecoder v of
     Ok user -> Just user
-    Err e -> Debug.log (Decode.errorToString e) Nothing
+    Err e -> Nothing
 
 userDecoder : Decoder User
 userDecoder =

@@ -9,7 +9,9 @@ import Track exposing (..)
 import User exposing (User)
 
 type Msg
-    = UsernameUpdate String
+    = GotRollPos (Float, Float)
+    
+    | UsernameUpdate String
     | SubmitUser
     | PlayTrack
     | StopPlayback
