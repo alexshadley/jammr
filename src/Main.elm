@@ -27,43 +27,52 @@ import PianoRoll
 
 ---- MODEL ----
 
+initModel : Model
+initModel =
+  { pianoRolls =
+    [ {id=1, pagePos=(0, 0), rollHeight=500, voice=0, topPitch=48, pitches=25, unpitchedVoices=Nothing}
+    , {id=2, pagePos=(0, 0), rollHeight=500, voice=1, topPitch=60, pitches=25, unpitchedVoices=Nothing}
+    --, {rollHeight=350, voice=2, topPitch=54, pitches=12, unpitchedVoices=Nothing}
+    , {id=3, pagePos=(0, 0), rollHeight=100, voice=2, topPitch=48, pitches=5, unpitchedVoices=Just
+      [ "Cowbell"
+      , "Crash"
+      , "Hi Hat"
+      , "Kick"
+      , "Snare"
+      ] }
+    ]
+  , track = Track.empty
+  , uiMode = Painting
+  , currentNote = Nothing
+  , lastNoteBeats = 1.0
+  , currentSelection = Nothing
+  , selectedNotes = Set.empty
+
+  , currentUser = Nothing
+  , users = Dict.empty
+  , usernameInput = ""
+  , playbackBeat = Nothing
+  , bpm = 120.0
+  }
+
 
 init : ( Model, Cmd Msg )
 init =
-    ( { pianoRolls =
-        [ {pagePos=(0, 0), rollHeight=500, voice=0, topPitch=48, pitches=25, unpitchedVoices=Nothing}
-        , {pagePos=(0, 0), rollHeight=500, voice=1, topPitch=60, pitches=25, unpitchedVoices=Nothing}
-        --, {rollHeight=350, voice=2, topPitch=54, pitches=12, unpitchedVoices=Nothing}
-        , {pagePos=(0, 0), rollHeight=100, voice=2, topPitch=48, pitches=5, unpitchedVoices=Just
-          [ "Cowbell"
-          , "Crash"
-          , "Hi Hat"
-          , "Kick"
-          , "Snare"
-          ] }
-        ]
-      , track = Track.empty
-      , uiMode = Painting
-      , currentNote = Nothing
-      , lastNoteBeats = 1.0
-      , currentSelection = Nothing
-      , selectedNotes = Set.empty
-
-      , currentUser = Nothing
-      , users = Dict.empty
-      , usernameInput = ""
-      , playbackBeat = Nothing
-      , bpm = 120.0
-    } , getRollPos )
+  (initModel, getAllRollPos initModel)
 
 
-getRollPos : Cmd Msg
-getRollPos =
-  Dom.getElement "piano-roll-1"
+getAllRollPos : Model -> Cmd Msg
+getAllRollPos model =
+  Cmd.batch
+    ( List.map (\r -> getRollPos r.id) model.pianoRolls)
+
+getRollPos : Int -> Cmd Msg
+getRollPos id =
+  Dom.getElement ("piano-roll-" ++ String.fromInt id)
     |> Task.attempt (\result ->
         case result of
-          Ok el -> GotRollPos (el.element.x, el.element.y)
-          Err _ -> GotRollPos (0, 0)
+          Ok el -> GotRollPos id (el.element.x + 90, el.element.y)
+          Err _ -> GotRollPos id (0, 0)
       )
 
 -- constants
@@ -75,9 +84,11 @@ subdivisions = 4
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
   case msg of
-    GotRollPos (x, y) ->
+    GotRollPos id (x, y) ->
       let
-        rolls = List.map (\r -> { r | pagePos = (x, y) }) model.pianoRolls
+        rolls =
+          model.pianoRolls
+            |> List.map (\r -> if r.id == id then { r | pagePos = (x, y) } else r)
       in
         ( {model | pianoRolls = rolls}, Cmd.none)
 

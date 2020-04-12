@@ -7,7 +7,8 @@ import Track exposing (..)
 import User exposing (User)
 
 type alias InputParams =
-  { pagePos    : (Float, Float)
+  { id         : Int
+  , pagePos    : (Float, Float)
   , rollHeight : Int
   , voice      : Voice
   , topPitch   : Pitch

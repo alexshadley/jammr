@@ -134,7 +134,8 @@ noteStyling model user id =
 
 -- also includes calculated values
 type alias Params =
-  { pagePos    : (Float, Float)
+  { id         : Int
+  , pagePos    : (Float, Float)
   , rollHeight : Int
   , voice      : Int
   , topPitch   : Int
@@ -146,7 +147,8 @@ type alias Params =
 
 calcParams : InputParams -> Params
 calcParams input =
-  { pagePos = input.pagePos
+  { id = input.id
+  , pagePos = input.pagePos
   , rollHeight = input.rollHeight
   , voice = input.voice
   , topPitch = input.topPitch
@@ -168,7 +170,7 @@ pianoRoll model input =
           [ width (String.fromInt totalWidth)
           , height (String.fromInt params.rollHeight)
           , viewBox ("-" ++ (String.fromInt labelWidth) ++ " 0 " ++ (String.fromInt totalWidth) ++ " " ++ (String.fromInt params.rollHeight))
-          , id "piano-roll-1"
+          , id ("piano-roll-" ++ String.fromInt params.id)
           ]
           [ pitchLanes params
           , dividers params
@@ -235,20 +237,23 @@ controlOverlay model params =
     g [ opacity "0" ] children
 
 
+tupleMinus : (Float, Float) -> (Float, Float) -> (Float, Float)
+tupleMinus (x1, y1) (x2, y2) = (x1 - x2, y1 - y2)
+
 baseOverlay : Model -> Params -> Svg Msg
 baseOverlay model params =
   let
     actions =
       case model.uiMode of
         Selecting _ Nothing ->
-          [ Mouse.onDown (\e -> StartSelection params.voice e.offsetPos)
-          , Mouse.onMove (\e -> MoveSelection e.offsetPos)
-          , Mouse.onUp (\e -> EndSelection e.offsetPos)
+          [ Mouse.onDown (\e -> StartSelection params.voice (tupleMinus e.pagePos params.pagePos))
+          , Mouse.onMove (\e -> MoveSelection (tupleMinus e.pagePos params.pagePos))
+          , Mouse.onUp (\e -> EndSelection (tupleMinus e.pagePos params.pagePos))
           ]
         
         Selecting _ (Just _) ->
-          [ Mouse.onMove (\e -> MoveNoteMove e.offsetPos)
-          , Mouse.onUp (\e -> EndNoteMove e.offsetPos)
+          [ Mouse.onMove (\e -> MoveNoteMove (tupleMinus e.pagePos params.pagePos))
+          , Mouse.onUp (\e -> EndNoteMove (tupleMinus e.pagePos params.pagePos))
           ]
         
         _ -> []
@@ -275,7 +280,7 @@ noteHandle model params note =
       , height (String.fromFloat (ey - sy))
       , Mouse.onDown (\e ->
         case e.offsetPos of
-          (offX, offY) -> StartNoteMove (sx + offX, sy + offY)
+          (offX, offY) -> StartNoteMove (tupleMinus e.pagePos params.pagePos)
         )
       ] []
 
@@ -317,8 +322,8 @@ currentNote model params =
                 , y (String.fromFloat yVal)
                 , width (String.fromFloat widthVal)
                 , height (String.fromFloat params.laneHeight)
-                , Mouse.onMove (\event -> MoveDrawing (xVal + Tuple.first event.offsetPos) )
-                , Mouse.onUp (\event -> EndDrawing (xVal + Tuple.first event.offsetPos) )
+                , Mouse.onMove (\event -> MoveDrawing (Tuple.first event.pagePos - Tuple.first params.pagePos) )
+                , Mouse.onUp (\event -> EndDrawing (Tuple.first event.pagePos - Tuple.first params.pagePos) )
                 ] ++ noteStyling model model.currentUser Nothing
               ) []
         
@@ -441,9 +446,9 @@ pitchLane params pitch =
       , width (String.fromInt rollWidth)
       , height (String.fromFloat params.laneHeight)
       , fill "currentColor"
-      , Mouse.onDown (\event -> StartDrawing params.voice pitch (Tuple.first event.offsetPos) )
-      , Mouse.onMove (\event -> MoveDrawing (Tuple.first event.offsetPos) )
-      , Mouse.onUp (\event -> EndDrawing (Tuple.first event.offsetPos) )
+      , Mouse.onDown (\event -> StartDrawing params.voice pitch (Tuple.first event.pagePos - Tuple.first params.pagePos) )
+      , Mouse.onMove (\event -> MoveDrawing (Tuple.first event.pagePos - Tuple.first params.pagePos) )
+      , Mouse.onUp (\event -> EndDrawing (Tuple.first event.pagePos - Tuple.first params.pagePos) )
       ] []
 
 dividers : Params -> Svg Msg

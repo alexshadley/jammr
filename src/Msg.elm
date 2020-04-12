@@ -9,7 +9,7 @@ import Track exposing (..)
 import User exposing (User)
 
 type Msg
-    = GotRollPos (Float, Float)
+    = GotRollPos Int (Float, Float)
     
     | UsernameUpdate String
     | SubmitUser
