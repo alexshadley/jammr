@@ -22,7 +22,9 @@ import Msg exposing (..)
 import Model exposing (..)
 import Track exposing (..)
 import User exposing (User)
-import PianoRoll
+import PianoRoll.View
+import PianoRoll.Helper as PianoRoll
+import PianoRoll.Model
 
 
 ---- MODEL ----
@@ -186,7 +188,7 @@ update msg model =
         case selectionParameters of
           Just (selection, params) ->
             let
-              finalParams = PianoRoll.calcParams params
+              finalParams = PianoRoll.Model.calcParams params
               finalSelection = { selection | end = (x, y)}
 
               selectedNotes = 
@@ -249,7 +251,7 @@ update msg model =
         case (selectionParameters, model.uiMode) of
           (Just params, Selecting oldMode (Just noteMove)) ->
             let
-              finalParams = PianoRoll.calcParams params
+              finalParams = PianoRoll.Model.calcParams params
               ((sx, sy), (ex, ey)) = (noteMove.start, noteMove.end)
               offsetBeats = PianoRoll.calcOffsetBeats finalParams (ex - sx)
               offsetPitches = PianoRoll.calcOffsetPitches finalParams (ey - sy)
@@ -381,7 +383,7 @@ view model =
                 [ modeButton model
                 , bpmSlider model
                 ]
-              ] ++ List.map (PianoRoll.pianoRoll model) model.pianoRolls
+              ] ++ List.map (PianoRoll.View.view model) model.pianoRolls
             )
           , el [ alignRight, alignTop, moveLeft 50, moveDown 100 ] (usersWidget model)
           ]

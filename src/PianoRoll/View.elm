@@ -1,5 +1,7 @@
-module PianoRoll exposing (pianoRoll, calcStartAndDuration, noteInSelection, calcOffsetBeats, calcOffsetPitches, calcParams)
+module PianoRoll.View exposing (view)
 
+import PianoRoll.Helper exposing (..)
+import PianoRoll.Model exposing (..)
 
 import Dict
 import Set
@@ -9,19 +11,11 @@ import Html.Events exposing (onClick)
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
 
-
 import Msg exposing (..)
 import Model exposing (..)
 import Track exposing (..)
 import User exposing (User)
 
-rollWidth = 1000
-labelWidth = 90
-
-beatCount = 24
-subdivisions = 4
-
-cellWidth = rollWidth / beatCount
 
 defaultColor = "gray"
 selectionColor = "red"
@@ -30,68 +24,6 @@ laneColor1 = "white"
 laneColor2 = "lightgray"
 dividerColor = "#bbbbbb"
 
-{-| Returns (start, duration) from the start and end of a note drawing
--}
-calcStartAndDuration : CurrentNote -> Float -> (Float, Float)
-calcStartAndDuration {startX, endX, leftStartArea} prevSize =
-  let
-    startBin = truncate <| startX / ( rollWidth / ( beatCount * subdivisions ) )
-    startBeat = toFloat startBin / subdivisions
-    endBin = 1 + ( truncate <| endX / ( rollWidth / ( beatCount * subdivisions ) ) )
-    endBeat = toFloat endBin / subdivisions
-
-    duration =
-      if leftStartArea then
-        endBeat - startBeat
-      else
-        Basics.max prevSize (endBeat - startBeat)
-  in
-    (startBeat, duration)
-
-calcNotePos : Params -> Note -> ((Float, Float), (Float, Float))
-calcNotePos params note =
-  let 
-    sx = note.start * cellWidth
-    sy = toFloat (params.topPitch - note.pitch) * params.laneHeight
-    ex = sx + note.duration * cellWidth
-    ey = sy + params.laneHeight
-  in
-    ((sx, sy), (ex, ey))
-
-calcOffsetBeats : Params -> Float -> Float
-calcOffsetBeats params dx =
-  let
-    bins = truncate <| dx / (params.cellWidth / subdivisions)
-  in
-    toFloat bins / subdivisions
-
-calcOffsetPitches : Params -> Float -> Int
-calcOffsetPitches params dy =
-  truncate <| dy / params.laneHeight
-
-{-| Calculates the four points of a note, checks to see if at least one is in
-the provided selection box
--}
-noteInSelection : Params -> BoxSelection -> Note -> Bool
-noteInSelection params selection note =
-  let
-    ((sx, sy), (ex, ey)) = calcNotePos params note
-    notePoints = [(sx, sy), (sx, ey), (ex, sy), (ex, ey)]
-
-    (selx1, sely1) = selection.start
-    (selx2, sely2) = selection.end
-
-    (selsx, selex) = (Basics.min selx1 selx2, Basics.max selx1 selx2)
-    (selsy, seley) = (Basics.min sely1 sely2, Basics.max sely1 sely2)
-
-  in
-    if selection.voice == note.voice then
-      notePoints
-        |> List.map (\(x, y) -> selsx <= x && x <= selex && selsy <= y && y <= seley)
-        |> List.member True
-
-    else
-      False
   
 
 -- gives fill and border colors
@@ -131,35 +63,8 @@ noteStyling model user id =
     ]
 
 
-
--- also includes calculated values
-type alias Params =
-  { id         : Int
-  , pagePos    : (Float, Float)
-  , rollHeight : Int
-  , voice      : Int
-  , topPitch   : Int
-  , pitches    : Int
-  , laneHeight : Float
-  , cellWidth  : Float
-  , unpitchedVoices : Maybe (List String)
-  }
-
-calcParams : InputParams -> Params
-calcParams input =
-  { id = input.id
-  , pagePos = input.pagePos
-  , rollHeight = input.rollHeight
-  , voice = input.voice
-  , topPitch = input.topPitch
-  , pitches = input.pitches
-  , laneHeight = toFloat input.rollHeight / toFloat input.pitches
-  , cellWidth = rollWidth / beatCount
-  , unpitchedVoices = input.unpitchedVoices
-  }
-
-pianoRoll : Model -> InputParams -> Element.Element Msg
-pianoRoll model input =
+view : Model -> InputParams -> Element.Element Msg
+view model input =
   let
     params = calcParams input
     totalWidth = rollWidth + labelWidth
@@ -172,20 +77,97 @@ pianoRoll model input =
           , viewBox ("-" ++ (String.fromInt labelWidth) ++ " 0 " ++ (String.fromInt totalWidth) ++ " " ++ (String.fromInt params.rollHeight))
           , id ("piano-roll-" ++ String.fromInt params.id)
           ]
-          [ pitchLanes params
-          , dividers params
-          , rollNotes model params
-          , currentNote model params
-          , playbackPosition model params
-          , visualOverlay model params
+          [ visualLayer model params
           , controlOverlay model params
           ]
 
 
-visualOverlay : Model -> Params -> Svg msg
-visualOverlay model params =
-  g [] [ selectionBox model params ]
-  
+controlOverlay : Model -> Params -> Svg Msg
+controlOverlay model params =
+  let
+    children =
+      case model.uiMode of
+        Selecting _ Nothing ->
+          let
+            selectedNotes = Track.getNotes (Set.toList model.selectedNotes) model.track
+          in
+            ( List.map (noteHandle model params) selectedNotes )
+        
+        _ -> []
+  in
+    g [ opacity "0" ]
+      ( [ baseOverlay model params ] ++ children )
+
+
+tupleMinus : (Float, Float) -> (Float, Float) -> (Float, Float)
+tupleMinus (x1, y1) (x2, y2) = (x1 - x2, y1 - y2)
+
+
+baseOverlay : Model -> Params -> Svg Msg
+baseOverlay model params =
+  let
+    rollHandler on fn = on (\e -> fn (tupleMinus e.pagePos params.pagePos))
+    onDown = rollHandler Mouse.onDown
+    onMove = rollHandler Mouse.onMove
+    onUp = rollHandler Mouse.onUp
+
+    actions =
+      case model.uiMode of
+        Selecting _ Nothing ->
+          [ onDown (\pos -> StartSelection params.voice pos)
+          , onMove (\pos -> MoveSelection pos)
+          , onUp (\pos -> EndSelection pos)
+          ]
+        
+        Selecting _ (Just _) ->
+          [ onMove (\pos -> MoveNoteMove pos)
+          , onUp (\pos -> EndNoteMove pos)
+          ]
+        
+        Painting ->
+          [ onDown (\(x, y) -> StartDrawing params.voice (calcPitch params y) x )
+          , onMove (\(x, _) -> MoveDrawing x )
+          , onUp (\(x, _) -> EndDrawing x )
+          ]
+
+  in
+    rect 
+      ( [ x "0"
+        , y "0"
+        , width (String.fromInt rollWidth)
+        , height (String.fromInt params.rollHeight)
+        ] ++ actions
+      ) []
+
+
+noteHandle : Model -> Params -> Note -> Svg Msg
+noteHandle model params note =
+  let
+    ((sx, sy), (ex, ey)) = calcNotePos params note
+  in
+    rect 
+      [ x (String.fromFloat sx)
+      , y (String.fromFloat sy)
+      , width (String.fromFloat (ex - sx))
+      , height (String.fromFloat (ey - sy))
+      , Mouse.onDown (\e ->
+        case e.offsetPos of
+          (offX, offY) -> StartNoteMove (tupleMinus e.pagePos params.pagePos)
+        )
+      ] []
+
+
+visualLayer : Model -> Params -> Svg msg
+visualLayer model params =
+  g []
+    [ pitchLanes params
+    , dividers params
+    , rollNotes model params
+    , currentNote model params
+    , playbackPosition model params
+    , selectionBox model params
+    ]
+
 
 selectionBox : Model -> Params -> Svg msg
 selectionBox model params =
@@ -217,76 +199,7 @@ selectionBox model params =
       g [] []
 
 
-controlOverlay : Model -> Params -> Svg Msg
-controlOverlay model params =
-  let
-    children =
-      case model.uiMode of
-        Selecting _ Nothing ->
-          let
-            selectedNotes = Track.getNotes (Set.toList model.selectedNotes) model.track
-          in
-            [ baseOverlay model params ] ++
-            ( List.map (noteHandle model params) selectedNotes )
-
-        Selecting _ (Just _) ->
-          [ baseOverlay model params ]
-        
-        _ -> []
-  in
-    g [ opacity "0" ] children
-
-
-tupleMinus : (Float, Float) -> (Float, Float) -> (Float, Float)
-tupleMinus (x1, y1) (x2, y2) = (x1 - x2, y1 - y2)
-
-baseOverlay : Model -> Params -> Svg Msg
-baseOverlay model params =
-  let
-    actions =
-      case model.uiMode of
-        Selecting _ Nothing ->
-          [ Mouse.onDown (\e -> StartSelection params.voice (tupleMinus e.pagePos params.pagePos))
-          , Mouse.onMove (\e -> MoveSelection (tupleMinus e.pagePos params.pagePos))
-          , Mouse.onUp (\e -> EndSelection (tupleMinus e.pagePos params.pagePos))
-          ]
-        
-        Selecting _ (Just _) ->
-          [ Mouse.onMove (\e -> MoveNoteMove (tupleMinus e.pagePos params.pagePos))
-          , Mouse.onUp (\e -> EndNoteMove (tupleMinus e.pagePos params.pagePos))
-          ]
-        
-        _ -> []
-
-  in
-    rect 
-      ( [ x "0"
-        , y "0"
-        , width (String.fromInt rollWidth)
-        , height (String.fromInt params.rollHeight)
-        ] ++ actions
-      ) []
-
-
-noteHandle : Model -> Params -> Note -> Svg Msg
-noteHandle model params note =
-  let
-    ((sx, sy), (ex, ey)) = calcNotePos params note
-  in
-    rect 
-      [ x (String.fromFloat sx)
-      , y (String.fromFloat sy)
-      , width (String.fromFloat (ex - sx))
-      , height (String.fromFloat (ey - sy))
-      , Mouse.onDown (\e ->
-        case e.offsetPos of
-          (offX, offY) -> StartNoteMove (tupleMinus e.pagePos params.pagePos)
-        )
-      ] []
-
-
-
-playbackPosition : Model -> Params -> Svg Msg
+playbackPosition : Model -> Params -> Svg msg
 playbackPosition model params =
   case model.playbackBeat of
     Just beat ->
@@ -305,7 +218,7 @@ playbackPosition model params =
       g [] []
 
 
-currentNote : Model -> Params -> Svg Msg
+currentNote : Model -> Params -> Svg msg
 currentNote model params =
   case model.currentNote of
     Just ({voice, pitch, startX, endX} as note) ->
@@ -322,8 +235,6 @@ currentNote model params =
                 , y (String.fromFloat yVal)
                 , width (String.fromFloat widthVal)
                 , height (String.fromFloat params.laneHeight)
-                , Mouse.onMove (\event -> MoveDrawing (Tuple.first event.pagePos - Tuple.first params.pagePos) )
-                , Mouse.onUp (\event -> EndDrawing (Tuple.first event.pagePos - Tuple.first params.pagePos) )
                 ] ++ noteStyling model model.currentUser Nothing
               ) []
         
@@ -333,7 +244,8 @@ currentNote model params =
     Nothing ->
       g [] []
 
-rollNotes : Model -> Params -> Svg Msg
+
+rollNotes : Model -> Params -> Svg msg
 rollNotes model params =
   let
     notes =
@@ -342,7 +254,8 @@ rollNotes model params =
   in
     g [] (List.map (rollNote model params) notes)
 
-rollNote : Model -> Params -> ((Int, String), Note) -> Svg Msg
+
+rollNote : Model -> Params -> ((Int, String), Note) -> Svg msg
 rollNote model params (id, note) =
   let
     ((sx, sy), (ex, ey)) = calcNotePos params note
@@ -365,9 +278,9 @@ rollNote model params (id, note) =
         , y (String.fromFloat (sy + yOffset))
         , width (String.fromFloat (ex - sx))
         , height (String.fromFloat (ey - sy))
-        , onClick (RemoveNote id)
         ] ++ noteStyling model user (Just id)
       ) []
+
 
 splitAlternating : List a -> (List a, List a)
 splitAlternating xs =
@@ -379,7 +292,7 @@ splitAlternating xs =
     (left, right)
 
 
-pitchLanes : Params -> Svg Msg
+pitchLanes : Params -> Svg msg
 pitchLanes params = 
   let
     pitches = List.range (params.topPitch - params.pitches + 1) params.topPitch
@@ -396,14 +309,15 @@ pitchLanes params =
       ]
 
     
-unpitchedRow : Params -> Pitch -> String -> Svg Msg
+unpitchedRow : Params -> Pitch -> String -> Svg msg
 unpitchedRow params pitch name =
   g []
     [ pitchLane params pitch
     , unpitchedLabel params pitch name
     ]
 
-unpitchedLabel : Params -> Pitch -> String -> Svg Msg
+
+unpitchedLabel : Params -> Pitch -> String -> Svg msg
 unpitchedLabel params pitch name =
   let
     yVal = toFloat (params.topPitch - pitch) * params.laneHeight + ((4.0 / 5.0) * params.laneHeight)
@@ -412,18 +326,18 @@ unpitchedLabel params pitch name =
       [ x (String.fromInt -labelWidth)
       , y (String.fromFloat yVal)
       , fill "black"
-      , Mouse.onDown (\_ -> PlayLabelKey params.voice pitch)
+      --, Mouse.onDown (\_ -> PlayLabelKey params.voice pitch)
       ] [ text name ]
     
 
-pitchRow : Params -> Int -> Svg Msg
+pitchRow : Params -> Int -> Svg msg
 pitchRow params pitch =
   g []
     [ pitchLane params pitch
     , pitchLabel params pitch
     ]
 
-pitchLabel : Params -> Int -> Svg Msg
+pitchLabel : Params -> Int -> Svg msg
 pitchLabel params pitch =
   let
     yVal = toFloat (params.topPitch - pitch) * params.laneHeight + ((4.0 / 5.0) * params.laneHeight)
@@ -432,10 +346,10 @@ pitchLabel params pitch =
       [ x (String.fromInt -50)
       , y (String.fromFloat yVal)
       , fill "black"
-      , Mouse.onDown (\_ -> PlayLabelKey params.voice pitch)
+      --, Mouse.onDown (\_ -> PlayLabelKey params.voice pitch)
       ] [ text (pitchToString pitch) ]
 
-pitchLane : Params -> Int -> Svg Msg
+pitchLane : Params -> Int -> Svg msg
 pitchLane params pitch =
   let
     yVal = toFloat (params.topPitch - pitch) * params.laneHeight
@@ -446,19 +360,18 @@ pitchLane params pitch =
       , width (String.fromInt rollWidth)
       , height (String.fromFloat params.laneHeight)
       , fill "currentColor"
-      , Mouse.onDown (\event -> StartDrawing params.voice pitch (Tuple.first event.pagePos - Tuple.first params.pagePos) )
-      , Mouse.onMove (\event -> MoveDrawing (Tuple.first event.pagePos - Tuple.first params.pagePos) )
-      , Mouse.onUp (\event -> EndDrawing (Tuple.first event.pagePos - Tuple.first params.pagePos) )
       ] []
 
-dividers : Params -> Svg Msg
+
+dividers : Params -> Svg msg
 dividers params = 
   let
     dividerNumbers = List.range 1 beatCount
   in
     g [color dividerColor] (List.map (divider params) dividerNumbers)
 
-divider : Params -> Int -> Svg Msg
+
+divider : Params -> Int -> Svg msg
 divider params num =
   let
     widthVal = if modBy 4 num == 0 then 4 else 2
