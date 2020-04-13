@@ -165,7 +165,7 @@ update msg model =
 
             (newTrack, (newId, _)) = Track.addNote newNote model.track
           in
-            ( { model | currentNote = Nothing, track = newTrack}
+            ( { model | currentNote = Nothing, track = newTrack, lastNoteBeats = newNote.duration }
             , addNote {id = newId, pitch = newNote.pitch, start = newNote.start, duration = newNote.duration, user = newNote.user, voice = newNote.voice} )
         
         Nothing ->
