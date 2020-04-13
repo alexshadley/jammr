@@ -22,6 +22,7 @@ type alias NoteInstruction =
 
 type alias NoteId = (Int, String)
 
+-- TODO: include id in note
 type alias Note =
   { pitch : Pitch
   , start : Float

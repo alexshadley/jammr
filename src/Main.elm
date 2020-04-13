@@ -83,6 +83,7 @@ subdivisions = 4
 ---- UPDATE ----
 
 
+-- TODO: look into moving piano roll updates into the PianoRoll module
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
   case msg of

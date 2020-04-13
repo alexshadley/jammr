@@ -17,7 +17,7 @@ type alias InputParams =
   , unpitchedVoices: Maybe (List String)
   }
 
--- mode and mode-specific state need to be managed more reasonably
+-- TODO: refactor mode to include more mode-specific state
 type SelectingMode = Moving | Copying
 type UIMode = Painting | Selecting SelectingMode (Maybe {start: (Float, Float), end: (Float, Float)})
 
