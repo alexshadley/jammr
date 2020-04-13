@@ -85,18 +85,26 @@ view model input =
 controlOverlay : Model -> Params -> Svg Msg
 controlOverlay model params =
   let
-    children =
+    noteHandles =
       case model.uiMode of
         Selecting _ Nothing ->
           let
-            selectedNotes = Track.getNotes (Set.toList model.selectedNotes) model.track
+            noteIds = Set.toList model.selectedNotes
+            selectedNotes =
+              List.map2 Tuple.pair
+                ( noteIds )
+                ( Track.getNotes noteIds model.track )
+
           in
-            ( List.map (noteHandle model params) selectedNotes )
+            List.map ( noteHandle model params (\_ pos -> StartNoteMove pos) ) selectedNotes
+        
+        Painting ->
+          List.map ( noteHandle model params (\(id, _) _ -> RemoveNote id)) (Track.toList model.track)
         
         _ -> []
   in
     g [ opacity "0" ]
-      ( [ baseOverlay model params ] ++ children )
+      ( [ baseOverlay model params ] ++ noteHandles )
 
 
 tupleMinus : (Float, Float) -> (Float, Float) -> (Float, Float)
@@ -140,8 +148,8 @@ baseOverlay model params =
       ) []
 
 
-noteHandle : Model -> Params -> Note -> Svg Msg
-noteHandle model params note =
+noteHandle : Model -> Params -> (((Int, String), Note) -> (Float, Float) -> Msg) -> ((Int, String), Note) -> Svg Msg
+noteHandle model params fn ((id, user), note) =
   let
     ((sx, sy), (ex, ey)) = calcNotePos params note
   in
@@ -150,10 +158,7 @@ noteHandle model params note =
       , y (String.fromFloat sy)
       , width (String.fromFloat (ex - sx))
       , height (String.fromFloat (ey - sy))
-      , Mouse.onDown (\e ->
-        case e.offsetPos of
-          (offX, offY) -> StartNoteMove (tupleMinus e.pagePos params.pagePos)
-        )
+      , Mouse.onDown (\e -> fn ((id, user), note) (tupleMinus e.pagePos params.pagePos))
       ] []
 
 
