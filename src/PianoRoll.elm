@@ -337,7 +337,7 @@ rollNotes : Model -> Params -> Svg Msg
 rollNotes model params =
   let
     notes =
-      Dict.toList model.track.notes
+      Track.toList model.track
         |> List.filter (\(_, {voice}) -> voice == params.voice)
   in
     g [] (List.map (rollNote model params) notes)

@@ -23,11 +23,6 @@ type Msg
     | StartDrawing Voice Pitch Float
     | MoveDrawing Float
     | EndDrawing Float
-    {- these hacks are necessary because mouse offset is always calculated
-    from the parent, which messes up our math if it's the note being drawn
-     -}
-    {- MoveDrawingOnNote Float
-    | EndDrawingOnNote Float-}
 
     | StartSelection Voice (Float, Float)
     | MoveSelection (Float, Float)

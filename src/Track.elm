@@ -1,4 +1,4 @@
-module Track exposing (Note, NoteId, NoteInstruction, Track, Voice, Pitch, empty, addNote, addNoteWithId, getNote, getNotes, removeNote, duplicateNotes, update, pitchToString, generateInstructions, generatePitchInst)
+module Track exposing (Note, NoteId, NoteInstruction, Track, Voice, Pitch, empty, toList, addNote, addNoteWithId, getNote, getNotes, removeNote, duplicateNotes, update, pitchToString, generateInstructions, generatePitchInst)
 
 import Dict exposing (Dict)
 import Process
@@ -30,48 +30,54 @@ type alias Note =
   , voice : Voice
   }
 
--- TODO: enforce Track abstraction
--- TODO: key notes on id and user
-type alias Track = 
-  { notes: Dict (Int, String) Note
-  , nextId: Int }
+type Track = 
+  Track
+    { notes: Dict (Int, String) Note
+    , nextId: Int }
 
 
 empty : Track
 empty = 
-  { notes = Dict.empty
-  , nextId = 0
-  }
+  Track
+    { notes = Dict.empty
+    , nextId = 0
+    }
+
+toList : Track -> List ((Int, String), Note)
+toList (Track track) =
+  Dict.toList track.notes
   
 
 addNote : Note -> Track -> (Track, (Int, String))
-addNote note track =
-  ( { notes = Dict.insert (track.nextId, note.user) note track.notes
-    , nextId = track.nextId + 1
-    }
+addNote note (Track track) =
+  ( Track
+      { notes = Dict.insert (track.nextId, note.user) note track.notes
+      , nextId = track.nextId + 1
+      }
   , (track.nextId, note.user) )
 
 
 addNoteWithId : NoteId -> Note -> Track -> Track
-addNoteWithId id note track =
-  { notes = Dict.insert id note track.notes
-  , nextId = 1 + max (Tuple.first id) track.nextId
-  }
+addNoteWithId id note (Track track) =
+  Track
+    { notes = Dict.insert id note track.notes
+    , nextId = 1 + max (Tuple.first id) track.nextId
+    }
 
   
 getNote : (Int, String) -> Track -> Maybe Note
-getNote key track =
+getNote key (Track track) =
   Dict.get key track.notes
 
 
 getNotes : List (Int, String) -> Track -> List Note
-getNotes keys track =
+getNotes keys (Track track) =
   keys
     |> List.map (\key -> Dict.get key track.notes)
     |> List.foldr (\maybeNote notes -> notes ++ (Maybe.map (\n -> [n]) maybeNote |> Maybe.withDefault [])) []
 
 duplicateNotes : List (Int, String) -> Track -> (Track, List (Int, String))
-duplicateNotes keys track =
+duplicateNotes keys (Track track) =
   List.foldr
     (\key (t, newKeys) -> 
       case Dict.get key track.notes of
@@ -84,24 +90,24 @@ duplicateNotes keys track =
         Nothing ->
           (t, newKeys)
     )
-    (track, []) keys
+    (Track track, []) keys
 
 removeNote : (Int, String) -> Track -> Track
-removeNote key track =
-  { track | notes = Dict.remove key track.notes }
+removeNote key (Track track) =
+  Track { track | notes = Dict.remove key track.notes }
 
 
 {-| maps a function over an entry, if it exists
 -}
 update : (Note -> Note) -> (Int, String) -> Track -> Track
-update fn key track =
+update fn key (Track track) =
   let
     maybeFn maybeNote =
       case maybeNote of
         Just note -> Just (fn note)
         Nothing   -> Nothing
   in
-    {track | notes = Dict.update key maybeFn track.notes}
+    Track {track | notes = Dict.update key maybeFn track.notes}
 
 
 pitchToString : Pitch -> String
@@ -146,7 +152,7 @@ generateNote tempo note =
 
 
 generateInstructions : Float -> Track -> List NoteInstruction
-generateInstructions tempo track =
+generateInstructions tempo (Track track) =
   track.notes
     |> Dict.toList 
     |> List.map Tuple.second

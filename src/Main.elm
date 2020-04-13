@@ -167,44 +167,6 @@ update msg model =
         
         Nothing ->
           ( model, Cmd.none)
-
-    {-MoveDrawingOnNote xCur ->
-      let
-        newNote =
-          Maybe.map (
-            \cn -> 
-              let
-                leftStart = 
-                  let
-                    (_, duration) = PianoRoll.calcStartAndDuration cn model.lastNoteBeats
-                  in
-                    duration > model.lastNoteBeats
-              in
-                {cn | endX = cn.startX + xCur, leftStartArea = cn.leftStartArea || leftStart}
-            ) model.currentNote
-      in
-        ( { model | currentNote = newNote }
-        , Cmd.none)
-
-    EndDrawingOnNote xFinal ->
-      case model.currentNote of
-        Just ({voice, pitch, startX} as note) ->
-          let
-            noteUpdated = { note | endX = startX + xFinal }
-            (newStart, newDuration) = PianoRoll.calcStartAndDuration noteUpdated model.lastNoteBeats
-            newNote =
-              { pitch = pitch, start = newStart, duration = newDuration, user = Maybe.withDefault  model.currentUser, voice = voice}
-            (newTrack, newId) = Track.addNote newNote model.track
-          in
-            ( { model 
-                | currentNote = Nothing
-                , lastNoteBeats = newNote.duration
-                , track = newTrack
-                }
-            , addNote {id = newId, pitch = newNote.pitch, start = newNote.start, duration = newNote.duration, user = newNote.user, voice = newNote.voice} )
-        
-        Nothing ->
-          (model, Cmd.none)-}
     
     StartSelection voice (x, y) ->
       ( { model | currentSelection = Just {voice = voice, start = (x, y), end = (x, y)}}, Cmd.none )
@@ -228,7 +190,7 @@ update msg model =
               finalSelection = { selection | end = (x, y)}
 
               selectedNotes = 
-                Dict.toList model.track.notes
+                Track.toList model.track
                   |> List.filter (\(_, n) -> PianoRoll.noteInSelection finalParams finalSelection n)
                   |> List.map Tuple.first
                   |> Set.fromList
