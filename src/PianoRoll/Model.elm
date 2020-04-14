@@ -1,7 +1,6 @@
 module PianoRoll.Model exposing (..)
 
 import Track exposing (..)
-import Model exposing (..)
 
 rollWidth = 1000
 labelWidth = 90
@@ -11,12 +10,29 @@ subdivisions = 4
 
 cellWidth = rollWidth / beatCount
 
+type alias InputParams =
+  { id         : Int
+  , pagePos    : (Float, Float)
+  , rollHeight : Int
+  , voice      : Voice
+  , voiceName  : String
+  , visible    : Bool
+  , muted      : Bool
+  , topPitch   : Pitch
+  , pitches    : Int
+  -- if set, overrides other settings
+  , unpitchedVoices: Maybe (List String)
+  }
+
 -- also includes calculated values
 type alias Params =
   { id         : Int
   , pagePos    : (Float, Float)
   , rollHeight : Int
   , voice      : Voice
+  , voiceName  : String
+  , visible    : Bool
+  , muted      : Bool
   , topPitch   : Pitch
   , pitches    : Int
   , laneHeight : Float
@@ -30,6 +46,9 @@ calcParams input =
   , pagePos = input.pagePos
   , rollHeight = input.rollHeight
   , voice = input.voice
+  , voiceName = input.voiceName
+  , visible = input.visible
+  , muted = input.muted
   , topPitch = input.topPitch
   , pitches = input.pitches
   , laneHeight = toFloat input.rollHeight / toFloat input.pitches

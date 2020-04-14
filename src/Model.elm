@@ -1,21 +1,11 @@
-module Model exposing (Model, InputParams, CurrentNote, BoxSelection, UIMode(..), DrawingMode(..), SelectingMode(..))
+module Model exposing (Model, CurrentNote, BoxSelection, UIMode(..), DrawingMode(..), SelectingMode(..))
 
 import Dict exposing (Dict)
 import Set exposing (Set)
 
 import Track exposing (..)
+import PianoRoll.Model exposing (..)
 import User exposing (User)
-
-type alias InputParams =
-  { id         : Int
-  , pagePos    : (Float, Float)
-  , rollHeight : Int
-  , voice      : Voice
-  , topPitch   : Pitch
-  , pitches    : Int
-  -- if set, overrides other settings
-  , unpitchedVoices: Maybe (List String)
-  }
 
 -- TODO: refactor mode to include more mode-specific state
 type DrawingMode = Adding | AdjustingStart NoteId Beats | AdjustingEnd NoteId Beats
@@ -36,7 +26,7 @@ type alias BoxSelection =
   }
 
 type alias Model =
-  { pianoRolls : List InputParams
+  { pianoRolls : List Params
   , track : Track 
   --pitch, start, and end of note currently being drawn
   , uiMode : UIMode

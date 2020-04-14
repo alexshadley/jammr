@@ -63,10 +63,9 @@ noteStyling model user id =
     ]
 
 
-view : Model -> InputParams -> Element.Element Msg
-view model input =
+view : Model -> Params -> Element.Element Msg
+view model params =
   let
-    params = calcParams input
     totalWidth = rollWidth + labelWidth
   in
     Element.el [] <| 
@@ -100,6 +99,7 @@ controlOverlay model params =
         
         Painting Adding ->
           ( List.map ( noteHandle model params (\(id, _) _ -> RemoveNote id) ) (Track.toList model.track) ++
+            List.map ( noteStartHandle model params ) (Track.toList model.track) ++
             List.map ( noteEndHandle model params ) (Track.toList model.track)
           )
         
@@ -140,9 +140,10 @@ baseOverlay model params =
           , onUp (\(x, _) -> EndDrawing x )
           ]
 
-        -- TODO: implement
         Painting (AdjustingStart id _) ->
-          []
+          [ onMove (\(x, _) -> MoveNoteStartAdjust id (calcBeats params x) )
+          , onUp (\(x, _) -> EndNoteStartAdjust id (calcBeats params x) )
+          ]
 
         Painting (AdjustingEnd id _) ->
           [ onMove (\(x, _) -> MoveNoteEndAdjust id (calcBeats params x) )
@@ -177,11 +178,11 @@ noteHandle model params fn (id, note) =
 noteStartHandle : Model -> Params -> (NoteId, Note) -> Svg Msg
 noteStartHandle model params (id, note) =
   let
-    ((_, sy), (ex, ey)) = calcNotePos params note
+    ((sx, sy), (_, ey)) = calcNotePos params note
   in
     rect 
       -- TODO: move to const
-      [ x (String.fromFloat (ex - 10))
+      [ x (String.fromFloat (sx - 10))
       , y (String.fromFloat sy)
       , width (String.fromFloat 20)
       , height (String.fromFloat (ey - sy))
@@ -189,7 +190,7 @@ noteStartHandle model params (id, note) =
           let
             beats = calcBeats params <| Tuple.first (tupleMinus e.pagePos params.pagePos)
           in
-            StartNoteEndAdjust id beats
+            StartNoteStartAdjust id beats
         )
       ] []
 
@@ -307,6 +308,9 @@ rollNotes model params =
   let
     drawTrack =
       case model.uiMode of
+        Painting (AdjustingStart id beats) ->
+          Track.update (\n -> {n | start = beats, duration = (n.start - beats) + n.duration}) id model.track
+
         Painting (AdjustingEnd id beats) ->
           Track.update (\n -> {n | duration = beats - n.start}) id model.track
         

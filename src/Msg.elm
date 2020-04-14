@@ -19,6 +19,9 @@ type Msg
     | ChangeBPM Float
     | PlayLabelKey Voice Pitch
 
+    | ToggleVisible Int
+    | ToggleMuted Int
+
     | RemoveNote NoteId
     | StartDrawing Voice Pitch Float
     | MoveDrawing Float
@@ -26,6 +29,9 @@ type Msg
     | StartNoteEndAdjust NoteId Beats
     | MoveNoteEndAdjust NoteId Beats
     | EndNoteEndAdjust NoteId Beats
+    | StartNoteStartAdjust NoteId Beats
+    | MoveNoteStartAdjust NoteId Beats
+    | EndNoteStartAdjust NoteId Beats
 
     | StartSelection Voice (Float, Float)
     | MoveSelection (Float, Float)

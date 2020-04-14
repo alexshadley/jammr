@@ -18,6 +18,9 @@ import Element.Events exposing (..)
 import Element.Font as Font
 import Element.Input as Input
 
+import FontAwesome.Icon as Icon
+import FontAwesome.Solid as Solid
+
 import Msg exposing (..)
 import Model exposing (..)
 import Track exposing (..)
@@ -32,17 +35,47 @@ import PianoRoll.Model
 initModel : Model
 initModel =
   { pianoRolls =
-    [ {id=1, pagePos=(0, 0), rollHeight=500, voice=0, topPitch=48, pitches=25, unpitchedVoices=Nothing}
-    , {id=2, pagePos=(0, 0), rollHeight=500, voice=1, topPitch=60, pitches=25, unpitchedVoices=Nothing}
-    --, {rollHeight=350, voice=2, topPitch=54, pitches=12, unpitchedVoices=Nothing}
-    , {id=3, pagePos=(0, 0), rollHeight=100, voice=2, topPitch=48, pitches=5, unpitchedVoices=Just
-      [ "Cowbell"
-      , "Crash"
-      , "Hi Hat"
-      , "Kick"
-      , "Snare"
-      ] }
-    ]
+      List.map PianoRoll.Model.calcParams
+        [ { id = 1
+          , pagePos = (0, 0)
+          , rollHeight = 500
+          , voice = 0
+          , voiceName = "Piano"
+          , visible = True
+          , muted = False
+          , topPitch = 48
+          , pitches = 25
+          , unpitchedVoices = Nothing
+          }
+        , { id = 2
+          , pagePos = (0, 0)
+          , rollHeight = 500
+          , voice = 1
+          , voiceName = "Electric Bass"
+          , visible = True
+          , muted = False
+          , topPitch = 60
+          , pitches = 25
+          , unpitchedVoices = Nothing
+          }
+        , { id = 3
+          , pagePos = (0, 0)
+          , rollHeight = 100
+          , voice = 2
+          , voiceName = "Drum Kit"
+          , visible = True
+          , muted = False
+          , topPitch = 48
+          , pitches = 5
+          , unpitchedVoices = Just
+            [ "Cowbell"
+            , "Crash"
+            , "Hi Hat"
+            , "Kick"
+            , "Snare"
+            ]
+          }
+        ]
   , track = Track.empty
   , uiMode = Painting Adding
   , currentNote = Nothing
@@ -116,6 +149,28 @@ update msg model =
     PlayLabelKey voice pitch ->
       ( model, playNotes [ generatePitchInst voice pitch ] )
 
+    ToggleVisible id ->
+      let
+        newRolls = List.map (\r ->
+          if r.id == id then
+            { r | visible = not r.visible }
+          else
+            r
+          ) model.pianoRolls
+      in
+        ( { model | pianoRolls = newRolls}, getAllRollPos model )
+
+    ToggleMuted id ->
+      let
+        newRolls = List.map (\r ->
+          if r.id == id then
+            { r | muted = not r.muted }
+          else
+            r
+          ) model.pianoRolls
+      in
+        ( { model | pianoRolls = newRolls}, Cmd.none )
+
     RemoveNote id ->
       ( { model | track = Track.removeNote id model.track}, removeNotes {notes = [id]} )
     
@@ -154,7 +209,7 @@ update msg model =
               newNote = 
                 { pitch = note.pitch
                 -- TODO: move this work into view where message is generated
-                , start = PianoRoll.calcBeats (PianoRoll.Model.calcParams params) x
+                , start = PianoRoll.calcBeats params x
                 , duration = model.lastNoteBeats
                 , user = Maybe.withDefault "" <| Maybe.map .name model.currentUser
                 , voice = note.voice }
@@ -166,10 +221,35 @@ update msg model =
           
           Nothing ->
             ( model, Cmd.none)
+
+    StartNoteStartAdjust id beats ->
+      ( { model | uiMode = Painting (AdjustingStart id beats) }, Cmd.none )
+
+    MoveNoteStartAdjust id beats ->
+      ( { model | uiMode = Painting (AdjustingStart id beats) }, Cmd.none )
+
+    EndNoteStartAdjust id beats ->
+      case Track.getNote id model.track of
+        Just note ->
+          let
+            newStart = min ((note.start + note.duration) - (1.0 / subdivisions)) beats
+            newNote =
+              { note | start = newStart, duration = (note.start - newStart) + note.duration}
+            (numericId, _) = id
+          in
+            ( { model 
+              | track = Track.addNoteWithId id newNote model.track
+              , uiMode = Painting Adding 
+              , lastNoteBeats = newNote.duration
+              }
+            , updateNotes {notes = [{ id = numericId, pitch = newNote.pitch, start = newNote.start, duration = newNote.duration, user = newNote.user, voice = newNote.voice }] }
+            )
+        
+        Nothing ->
+          ( model, Cmd.none )
     
     StartNoteEndAdjust id beats ->
       ( { model | uiMode = Painting (AdjustingEnd id beats) }, Cmd.none )
-        
 
     MoveNoteEndAdjust id beats ->
       ( { model | uiMode = Painting (AdjustingEnd id beats) }, Cmd.none )
@@ -215,12 +295,11 @@ update msg model =
         case selectionParameters of
           Just (selection, params) ->
             let
-              finalParams = PianoRoll.Model.calcParams params
               finalSelection = { selection | end = (x, y)}
 
               selectedNotes = 
                 Track.toList model.track
-                  |> List.filter (\(_, n) -> PianoRoll.noteInSelection finalParams finalSelection n)
+                  |> List.filter (\(_, n) -> PianoRoll.noteInSelection params finalSelection n)
                   |> List.map Tuple.first
                   |> Set.fromList
             in
@@ -278,10 +357,9 @@ update msg model =
         case (selectionParameters, model.uiMode) of
           (Just params, Selecting oldMode (Just noteMove)) ->
             let
-              finalParams = PianoRoll.Model.calcParams params
               ((sx, sy), (ex, ey)) = (noteMove.start, noteMove.end)
-              offsetBeats = PianoRoll.calcOffsetBeats finalParams (ex - sx)
-              offsetPitches = PianoRoll.calcOffsetPitches finalParams (ey - sy)
+              offsetBeats = PianoRoll.calcOffsetBeats params (ex - sx)
+              offsetPitches = PianoRoll.calcOffsetPitches params (ey - sy)
 
               noteUpdateFn note = { note | start = note.start + offsetBeats, pitch = note.pitch - offsetPitches}
               newTrack = 
@@ -410,11 +488,57 @@ view model =
                 [ modeButton model
                 , bpmSlider model
                 ]
-              ] ++ List.map (PianoRoll.View.view model) model.pianoRolls
+              ] ++ List.map (rollRow model) model.pianoRolls
             )
           , el [ alignRight, alignTop, moveLeft 50, moveDown 100 ] (usersWidget model)
           ]
         )
+
+
+rollRow : Model -> PianoRoll.Model.Params -> Element Msg
+rollRow model params =
+  let
+    svg =
+      case params.visible of
+        True -> [ PianoRoll.View.view model params ]
+        False -> []
+    
+    visibleLabel = 
+      case params.visible of
+        True ->
+          el
+            [width (px 20), height (px 20)]
+            ( html <| Icon.viewIcon Solid.minus )
+
+        False ->
+          el
+            [width (px 20), height (px 20)]
+            ( html <| Icon.viewIcon Solid.plus )
+
+    muteLabel = 
+      case params.muted of
+        True ->
+          el
+            [width (px 20), height (px 20)]
+            ( html <| Icon.viewIcon Solid.volumeUp )
+
+        False ->
+          el
+            [width (px 20), height (px 20)]
+            ( html <| Icon.viewIcon Solid.volumeMute )
+
+  in
+    row
+      []
+      ( [ column [ spacing 10 ]
+          [ text params.voiceName
+          , row [ spacing 10 ]
+            [ Input.button buttonAttr {onPress = Just (ToggleVisible params.id), label = visibleLabel}
+            , Input.button buttonAttr {onPress = Just (ToggleMuted params.id), label = muteLabel}
+            ]
+          ]
+        ] ++ svg )
+
 
 playButton : Model -> Element Msg
 playButton model =

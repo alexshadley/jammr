@@ -160,6 +160,7 @@ generateInstructions tempo (Track track) =
     |> List.map Tuple.second
     |> List.map (generateNote tempo)
 
+
 generatePitchInst : Voice -> Pitch -> NoteInstruction
 generatePitchInst voice pitch =
   { pitch = pitchToString pitch
