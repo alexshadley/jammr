@@ -141,10 +141,10 @@ baseOverlay model params =
           ]
 
         -- TODO: implement
-        Painting (AdjustingStart id) ->
+        Painting (AdjustingStart id _) ->
           []
 
-        Painting (AdjustingEnd id) ->
+        Painting (AdjustingEnd id _) ->
           [ onMove (\(x, _) -> MoveNoteEndAdjust id (calcBeats params x) )
           , onUp (\(x, _) -> EndNoteEndAdjust id (calcBeats params x) )
           ]
@@ -171,6 +171,26 @@ noteHandle model params fn (id, note) =
       , width (String.fromFloat (ex - sx))
       , height (String.fromFloat (ey - sy))
       , Mouse.onDown (\e -> fn (id, note) (tupleMinus e.pagePos params.pagePos))
+      ] []
+
+
+noteStartHandle : Model -> Params -> (NoteId, Note) -> Svg Msg
+noteStartHandle model params (id, note) =
+  let
+    ((_, sy), (ex, ey)) = calcNotePos params note
+  in
+    rect 
+      -- TODO: move to const
+      [ x (String.fromFloat (ex - 10))
+      , y (String.fromFloat sy)
+      , width (String.fromFloat 20)
+      , height (String.fromFloat (ey - sy))
+      , Mouse.onDown (\e ->
+          let
+            beats = calcBeats params <| Tuple.first (tupleMinus e.pagePos params.pagePos)
+          in
+            StartNoteEndAdjust id beats
+        )
       ] []
 
 
@@ -285,8 +305,16 @@ currentNote model params =
 rollNotes : Model -> Params -> Svg msg
 rollNotes model params =
   let
+    drawTrack =
+      case model.uiMode of
+        Painting (AdjustingEnd id beats) ->
+          Track.update (\n -> {n | duration = beats - n.start}) id model.track
+        
+        _ ->
+          model.track
+
     notes =
-      Track.toList model.track
+      Track.toList drawTrack
         |> List.filter (\(_, {voice}) -> voice == params.voice)
   in
     g [] (List.map (rollNote model params) notes)

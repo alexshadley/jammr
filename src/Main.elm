@@ -168,23 +168,30 @@ update msg model =
             ( model, Cmd.none)
     
     StartNoteEndAdjust id beats ->
-      let
-        noteUpdateFn note = { note | duration = beats - note.start }
-      in
-        ( { model | track = Track.update noteUpdateFn id model.track, uiMode = Painting (AdjustingEnd id) }, Cmd.none )
+      ( { model | uiMode = Painting (AdjustingEnd id beats) }, Cmd.none )
         
 
     MoveNoteEndAdjust id beats ->
-      let
-        noteUpdateFn note = { note | duration = beats - note.start }
-      in
-        ( { model | track = Track.update noteUpdateFn id model.track }, Cmd.none )
+      ( { model | uiMode = Painting (AdjustingEnd id beats) }, Cmd.none )
 
     EndNoteEndAdjust id beats ->
-      let
-        noteUpdateFn note = { note | duration = beats - note.start }
-      in
-        ( { model | track = Track.update noteUpdateFn id model.track, uiMode = Painting Adding }, Cmd.none )
+      case Track.getNote id model.track of
+        Just note ->
+          let
+            newNote =
+              {note | duration = max (1.0 / subdivisions) (beats - note.start) }
+            (numericId, _) = id
+          in
+            ( { model 
+              | track = Track.addNoteWithId id newNote model.track
+              , uiMode = Painting Adding 
+              , lastNoteBeats = newNote.duration
+              }
+            , updateNotes {notes = [{ id = numericId, pitch = newNote.pitch, start = newNote.start, duration = newNote.duration, user = newNote.user, voice = newNote.voice }] }
+            )
+        
+        Nothing ->
+          ( model, Cmd.none )
 
     -- TODO: implement
     ToggleInSelection id ->

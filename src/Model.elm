@@ -18,7 +18,7 @@ type alias InputParams =
   }
 
 -- TODO: refactor mode to include more mode-specific state
-type DrawingMode = Adding | AdjustingStart NoteId | AdjustingEnd NoteId
+type DrawingMode = Adding | AdjustingStart NoteId Beats | AdjustingEnd NoteId Beats
 type SelectingMode = Moving | Copying
 -- TODO: change painting into drawing
 type UIMode = Painting DrawingMode | Selecting SelectingMode (Maybe {start: (Float, Float), end: (Float, Float)})
