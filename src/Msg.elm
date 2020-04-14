@@ -27,6 +27,7 @@ type Msg
     | StartSelection Voice (Float, Float)
     | MoveSelection (Float, Float)
     | EndSelection (Float, Float)
+    | ToggleInSelection NoteId
 
     | StartNoteMove (Float, Float)
     | MoveNoteMove (Float, Float)

@@ -9,13 +9,22 @@ calcPitch : Params -> Float -> Int
 calcPitch params y =
   params.topPitch - ( truncate <| y / params.laneHeight )
 
+
 calcOffsetPitches : Params -> Float -> Int
 calcOffsetPitches params dy =
   truncate <| dy / params.laneHeight
 
+
+calcBeats : Params -> Float -> Float
+calcBeats params x =
+  let
+    startBin = truncate <| x / ( rollWidth / ( beatCount * subdivisions ) )
+  in
+    toFloat startBin / subdivisions
+
 {-| Returns (start, duration) from the start and end of a note drawing
 -}
-calcStartAndDuration : CurrentNote -> Float -> (Float, Float)
+{-calcStartAndDuration : CurrentNote -> Float -> (Float, Float)
 calcStartAndDuration {startX, endX, leftStartArea} prevSize =
   let
     startBin = truncate <| startX / ( rollWidth / ( beatCount * subdivisions ) )
@@ -29,7 +38,7 @@ calcStartAndDuration {startX, endX, leftStartArea} prevSize =
       else
         Basics.max prevSize (endBeat - startBeat)
   in
-    (startBeat, duration)
+    (startBeat, duration)-}
 
 calcNotePos : Params -> Note -> ((Float, Float), (Float, Float))
 calcNotePos params note =

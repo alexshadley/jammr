@@ -24,9 +24,7 @@ type UIMode = Painting | Selecting SelectingMode (Maybe {start: (Float, Float), 
 type alias CurrentNote =
   { voice         : Voice
   , pitch         : Pitch
-  , startX        : Float
-  , endX          : Float
-  , leftStartArea : Bool
+  , x             : Float
   }
 
 type alias BoxSelection =
@@ -45,6 +43,7 @@ type alias Model =
   , currentSelection : Maybe BoxSelection
   , selectedNotes : Set NoteId
   -- `Maybe` because the user may not have logged in yet
+  -- TODO: make not maybe
   , currentUser : Maybe User
   , users : Dict String User
   , usernameInput : String

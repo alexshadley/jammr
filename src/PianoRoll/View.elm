@@ -99,7 +99,7 @@ controlOverlay model params =
             List.map ( noteHandle model params (\_ pos -> StartNoteMove pos) ) selectedNotes
         
         Painting ->
-          List.map ( noteHandle model params (\(id, _) _ -> RemoveNote id)) (Track.toList model.track)
+          List.map ( noteHandle model params (\(id, _) _ -> RemoveNote id) ) (Track.toList model.track)
         
         _ -> []
   in
@@ -226,11 +226,11 @@ playbackPosition model params =
 currentNote : Model -> Params -> Svg msg
 currentNote model params =
   case model.currentNote of
-    Just ({voice, pitch, startX, endX} as note) ->
+    Just ({voice, pitch} as note) ->
       case voice == params.voice of
         True ->
           let
-            (start, duration) = calcStartAndDuration note model.lastNoteBeats
+            (start, duration) = (calcBeats params note.x, model.lastNoteBeats)
             xVal = start * cellWidth
             yVal = toFloat (params.topPitch - pitch) * params.laneHeight
             widthVal = duration * cellWidth

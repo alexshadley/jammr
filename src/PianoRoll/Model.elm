@@ -1,5 +1,6 @@
 module PianoRoll.Model exposing (..)
 
+import Track exposing (..)
 import Model exposing (..)
 
 rollWidth = 1000
@@ -15,8 +16,8 @@ type alias Params =
   { id         : Int
   , pagePos    : (Float, Float)
   , rollHeight : Int
-  , voice      : Int
-  , topPitch   : Int
+  , voice      : Voice
+  , topPitch   : Pitch
   , pitches    : Int
   , laneHeight : Float
   , cellWidth  : Float

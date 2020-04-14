@@ -124,52 +124,50 @@ update msg model =
           currentNote = Just 
             { voice = voice
             , pitch = pitch
-            , startX = x
-            , endX = x
-            , leftStartArea = False
+            , x = x
             }
         }
       , playNotes [ generatePitchInst voice pitch ]
       )
     
-    -- TODO: make this less awful
     MoveDrawing xCur ->
       let
         newNote =
-          Maybe.map (
-            \cn -> 
-              let
-                leftStart = 
-                  let
-                    (_, duration) = PianoRoll.calcStartAndDuration cn model.lastNoteBeats
-                  in
-                    duration > model.lastNoteBeats
-              in
-                {cn | endX = xCur, leftStartArea = cn.leftStartArea || leftStart}
-            ) model.currentNote
+          Maybe.map (\cn -> { cn | x = xCur }) model.currentNote
       in
         ( { model | currentNote = newNote }
         , Cmd.none)
     
-    EndDrawing xFinal ->
-      case model.currentNote of
-        Just ({voice, pitch} as note) ->
-          let
-            (newStart, newDuration) = PianoRoll.calcStartAndDuration note model.lastNoteBeats
-            newNote = 
-              { pitch = pitch
-              , start = newStart
-              , duration = newDuration
-              , user = Maybe.withDefault "" <| Maybe.map .name model.currentUser
-              , voice = voice}
+    EndDrawing x ->
+      let
+        drawingParameters =
+          model.currentNote |> Maybe.andThen (\cn ->
+            List.filter (\r -> r.voice == cn.voice) model.pianoRolls |> List.head |> Maybe.andThen (\p ->
+            Just (cn, p)
+            ))
 
-            (newTrack, (newId, _)) = Track.addNote newNote model.track
-          in
-            ( { model | currentNote = Nothing, track = newTrack, lastNoteBeats = newNote.duration }
-            , addNote {id = newId, pitch = newNote.pitch, start = newNote.start, duration = newNote.duration, user = newNote.user, voice = newNote.voice} )
-        
-        Nothing ->
-          ( model, Cmd.none)
+      in
+        case drawingParameters of
+          Just (note, params) ->
+            let
+              newNote = 
+                { pitch = note.pitch
+                , start = PianoRoll.calcBeats (PianoRoll.Model.calcParams params) x
+                , duration = model.lastNoteBeats
+                , user = Maybe.withDefault "" <| Maybe.map .name model.currentUser
+                , voice = note.voice }
+
+              (newTrack, (newId, _)) = Track.addNote newNote model.track
+            in
+              ( { model | currentNote = Nothing, track = newTrack }
+              , addNote {id = newId, pitch = newNote.pitch, start = newNote.start, duration = newNote.duration, user = newNote.user, voice = newNote.voice} )
+          
+          Nothing ->
+            ( model, Cmd.none)
+
+    -- TODO: implement
+    ToggleInSelection id ->
+      ( model, Cmd.none )
     
     StartSelection voice (x, y) ->
       ( { model | currentSelection = Just {voice = voice, start = (x, y), end = (x, y)}}, Cmd.none )
@@ -438,6 +436,7 @@ primaryButtonAttr =
   , Border.color <| rgb255 0 123 255
   ]
 
+-- TODO: add text field
 bpmSlider : Model -> Element Msg
 bpmSlider model =
   Input.slider
