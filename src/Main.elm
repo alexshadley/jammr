@@ -135,7 +135,7 @@ update msg model =
       ( model, addUser {name = model.usernameInput} )
 
     PlayTrack ->
-      ( { model | playbackBeat = Just 0.0 }, playNotes (generateInstructions model.bpm model.track ) )
+      ( { model | playbackBeat = Just 0.0 }, playNotes (generateInstructions model) )
 
     StopPlayback ->
       ( { model | playbackBeat = Nothing }, stopPlayback () )
@@ -392,7 +392,7 @@ update msg model =
               ( { model | playbackBeat = Nothing }, stopPlayback () )
 
             Nothing ->
-              ( { model | playbackBeat = Just 0.0 }, playNotes (generateInstructions model.bpm model.track ) )
+              ( { model | playbackBeat = Just 0.0 }, playNotes (generateInstructions model) )
         
         "m" ->
           ( { model | uiMode = Selecting Moving Nothing, selectedNotes = Set.empty}, Cmd.none)
@@ -520,17 +520,17 @@ rollRow model params =
         True ->
           el
             [width (px 20), height (px 20)]
-            ( html <| Icon.viewIcon Solid.volumeUp )
+            ( html <| Icon.viewIcon Solid.volumeMute )
 
         False ->
           el
             [width (px 20), height (px 20)]
-            ( html <| Icon.viewIcon Solid.volumeMute )
+            ( html <| Icon.viewIcon Solid.volumeUp )
 
   in
     row
       []
-      ( [ column [ spacing 10 ]
+      ( [ column [ spacing 10, width (px 200) ]
           [ text params.voiceName
           , row [ spacing 10 ]
             [ Input.button buttonAttr {onPress = Just (ToggleVisible params.id), label = visibleLabel}
@@ -716,6 +716,43 @@ duration. Note that times are in seconds, not beats as with `Note`
 -}
 port playNotes : List NoteInstruction -> Cmd msg
 port stopPlayback : () -> Cmd msg
+
+generateNote : Float -> Note -> NoteInstruction
+generateNote tempo note =
+  let
+    secPerBeat =
+      (60 / tempo)
+  in
+    { pitch = pitchToString note.pitch
+    , start     = note.start * secPerBeat
+    , duration  = note.duration * secPerBeat
+    , voice     = note.voice
+    }
+
+
+generateInstructions : Model -> List NoteInstruction
+generateInstructions model =
+  let
+    mutedVoices =
+      model.pianoRolls
+        |> List.filter (\r -> r.muted)
+        |> List.map (\r -> r.voice)
+        |> Set.fromList
+  in
+  model.track
+    |> Track.toList 
+    |> List.map Tuple.second
+    |> List.filter (\n -> not <| Set.member n.voice mutedVoices)
+    |> List.map (generateNote model.bpm)
+
+
+generatePitchInst : Voice -> Pitch -> NoteInstruction
+generatePitchInst voice pitch =
+  { pitch = pitchToString pitch
+  , start     = 0
+  , duration  = 0.3
+  , voice     = voice
+  }
 
 subscriptions : Model -> Sub Msg
 subscriptions model =

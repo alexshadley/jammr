@@ -1,4 +1,4 @@
-module Track exposing (Note, NoteId, NoteInstruction, Track, Voice, Pitch, Beats, empty, toList, addNote, addNoteWithId, getNote, getNotes, removeNote, duplicateNotes, update, pitchToString, generateInstructions, generatePitchInst)
+module Track exposing (Note, NoteId, NoteInstruction, Track, Voice, Pitch, Beats, empty, toList, addNote, addNoteWithId, getNote, getNotes, removeNote, duplicateNotes, update, pitchToString)
 
 import Dict exposing (Dict)
 import Process
@@ -132,39 +132,3 @@ pitchToString pitch =
           _  -> "impossible" -- is there a way to fix this?
   in
     letter ++ String.fromInt ((pitch // 12) - 1)
-
-
-delay : Float -> msg -> Cmd msg
-delay time msg =
-  Process.sleep time
-    |> Task.perform (\_ -> msg)
-
-
-generateNote : Float -> Note -> NoteInstruction
-generateNote tempo note =
-  let
-    secPerBeat =
-      (60 / tempo)
-  in
-    { pitch = pitchToString note.pitch
-    , start     = note.start * secPerBeat
-    , duration  = note.duration * secPerBeat
-    , voice     = note.voice
-    }
-
-
-generateInstructions : Float -> Track -> List NoteInstruction
-generateInstructions tempo (Track track) =
-  track.notes
-    |> Dict.toList 
-    |> List.map Tuple.second
-    |> List.map (generateNote tempo)
-
-
-generatePitchInst : Voice -> Pitch -> NoteInstruction
-generatePitchInst voice pitch =
-  { pitch = pitchToString pitch
-  , start     = 0
-  , duration  = 0.3
-  , voice     = voice
-  }
