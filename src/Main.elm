@@ -140,6 +140,7 @@ update msg model =
     
     EndDrawing x ->
       let
+        -- TODO: remove this pattern in favor of calculating in the piano roll
         drawingParameters =
           model.currentNote |> Maybe.andThen (\cn ->
             List.filter (\r -> r.voice == cn.voice) model.pianoRolls |> List.head |> Maybe.andThen (\p ->
