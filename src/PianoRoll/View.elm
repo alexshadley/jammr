@@ -84,6 +84,10 @@ view model params =
 controlOverlay : Model -> Params -> Svg Msg
 controlOverlay model params =
   let
+    notes =
+      Track.toList model.track
+        |> List.filter (\(_, note) -> note.voice == params.voice)
+
     noteHandles =
       case model.uiMode of
         Selecting _ Nothing ->
@@ -98,10 +102,15 @@ controlOverlay model params =
             List.map ( noteHandle model params (\_ pos -> StartNoteMove pos) ) selectedNotes
         
         Painting Adding ->
-          ( List.map ( noteHandle model params (\(id, _) _ -> RemoveNote id) ) (Track.toList model.track) ++
-            List.map ( noteStartHandle model params ) (Track.toList model.track) ++
-            List.map ( noteEndHandle model params ) (Track.toList model.track)
-          )
+          case model.currentNote of
+            Nothing ->
+              ( List.map ( noteHandle model params (\(id, _) _ -> RemoveNote id) ) notes ++
+                List.map ( noteStartHandle model params ) notes ++
+                List.map ( noteEndHandle model params ) notes
+              )
+            
+            Just _ ->
+              []
         
         _ -> []
   in
