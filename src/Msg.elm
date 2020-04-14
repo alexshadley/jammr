@@ -23,6 +23,9 @@ type Msg
     | StartDrawing Voice Pitch Float
     | MoveDrawing Float
     | EndDrawing Float
+    | StartNoteEndAdjust NoteId Beats
+    | MoveNoteEndAdjust NoteId Beats
+    | EndNoteEndAdjust NoteId Beats
 
     | StartSelection Voice (Float, Float)
     | MoveSelection (Float, Float)

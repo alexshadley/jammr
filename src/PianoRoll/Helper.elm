@@ -22,23 +22,6 @@ calcBeats params x =
   in
     toFloat startBin / subdivisions
 
-{-| Returns (start, duration) from the start and end of a note drawing
--}
-{-calcStartAndDuration : CurrentNote -> Float -> (Float, Float)
-calcStartAndDuration {startX, endX, leftStartArea} prevSize =
-  let
-    startBin = truncate <| startX / ( rollWidth / ( beatCount * subdivisions ) )
-    startBeat = toFloat startBin / subdivisions
-    endBin = 1 + ( truncate <| endX / ( rollWidth / ( beatCount * subdivisions ) ) )
-    endBeat = toFloat endBin / subdivisions
-
-    duration =
-      if leftStartArea then
-        endBeat - startBeat
-      else
-        Basics.max prevSize (endBeat - startBeat)
-  in
-    (startBeat, duration)-}
 
 calcNotePos : Params -> Note -> ((Float, Float), (Float, Float))
 calcNotePos params note =

@@ -98,8 +98,10 @@ controlOverlay model params =
           in
             List.map ( noteHandle model params (\_ pos -> StartNoteMove pos) ) selectedNotes
         
-        Painting ->
-          List.map ( noteHandle model params (\(id, _) _ -> RemoveNote id) ) (Track.toList model.track)
+        Painting Adding ->
+          ( List.map ( noteHandle model params (\(id, _) _ -> RemoveNote id) ) (Track.toList model.track) ++
+            List.map ( noteEndHandle model params ) (Track.toList model.track)
+          )
         
         _ -> []
   in
@@ -132,11 +134,21 @@ baseOverlay model params =
           , onUp (\pos -> EndNoteMove pos)
           ]
         
-        Painting ->
+        Painting Adding ->
           [ onDown (\(x, y) -> StartDrawing params.voice (calcPitch params y) x )
           , onMove (\(x, _) -> MoveDrawing x )
           , onUp (\(x, _) -> EndDrawing x )
           ]
+
+        -- TODO: implement
+        Painting (AdjustingStart id) ->
+          []
+
+        Painting (AdjustingEnd id) ->
+          [ onMove (\(x, _) -> MoveNoteEndAdjust id (calcBeats params x) )
+          , onUp (\(x, _) -> EndNoteEndAdjust id (calcBeats params x) )
+          ]
+
 
   in
     rect 
@@ -148,8 +160,8 @@ baseOverlay model params =
       ) []
 
 
-noteHandle : Model -> Params -> (((Int, String), Note) -> (Float, Float) -> Msg) -> ((Int, String), Note) -> Svg Msg
-noteHandle model params fn ((id, user), note) =
+noteHandle : Model -> Params -> ((NoteId, Note) -> (Float, Float) -> Msg) -> (NoteId, Note) -> Svg Msg
+noteHandle model params fn (id, note) =
   let
     ((sx, sy), (ex, ey)) = calcNotePos params note
   in
@@ -158,7 +170,27 @@ noteHandle model params fn ((id, user), note) =
       , y (String.fromFloat sy)
       , width (String.fromFloat (ex - sx))
       , height (String.fromFloat (ey - sy))
-      , Mouse.onDown (\e -> fn ((id, user), note) (tupleMinus e.pagePos params.pagePos))
+      , Mouse.onDown (\e -> fn (id, note) (tupleMinus e.pagePos params.pagePos))
+      ] []
+
+
+noteEndHandle : Model -> Params -> (NoteId, Note) -> Svg Msg
+noteEndHandle model params (id, note) =
+  let
+    ((_, sy), (ex, ey)) = calcNotePos params note
+  in
+    rect 
+      -- TODO: move to const
+      [ x (String.fromFloat (ex - 10))
+      , y (String.fromFloat sy)
+      , width (String.fromFloat 20)
+      , height (String.fromFloat (ey - sy))
+      , Mouse.onDown (\e ->
+          let
+            beats = calcBeats params <| Tuple.first (tupleMinus e.pagePos params.pagePos)
+          in
+            StartNoteEndAdjust id beats
+        )
       ] []
 
 

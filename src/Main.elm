@@ -44,7 +44,7 @@ initModel =
       ] }
     ]
   , track = Track.empty
-  , uiMode = Painting
+  , uiMode = Painting Adding
   , currentNote = Nothing
   , lastNoteBeats = 1.0
   , currentSelection = Nothing
@@ -152,6 +152,7 @@ update msg model =
             let
               newNote = 
                 { pitch = note.pitch
+                -- TODO: move this work into view where message is generated
                 , start = PianoRoll.calcBeats (PianoRoll.Model.calcParams params) x
                 , duration = model.lastNoteBeats
                 , user = Maybe.withDefault "" <| Maybe.map .name model.currentUser
@@ -164,6 +165,25 @@ update msg model =
           
           Nothing ->
             ( model, Cmd.none)
+    
+    StartNoteEndAdjust id beats ->
+      let
+        noteUpdateFn note = { note | duration = beats - note.start }
+      in
+        ( { model | track = Track.update noteUpdateFn id model.track, uiMode = Painting (AdjustingEnd id) }, Cmd.none )
+        
+
+    MoveNoteEndAdjust id beats ->
+      let
+        noteUpdateFn note = { note | duration = beats - note.start }
+      in
+        ( { model | track = Track.update noteUpdateFn id model.track }, Cmd.none )
+
+    EndNoteEndAdjust id beats ->
+      let
+        noteUpdateFn note = { note | duration = beats - note.start }
+      in
+        ( { model | track = Track.update noteUpdateFn id model.track, uiMode = Painting Adding }, Cmd.none )
 
     -- TODO: implement
     ToggleInSelection id ->
@@ -295,7 +315,7 @@ update msg model =
           ( { model | uiMode = Selecting Copying Nothing, selectedNotes = Set.empty}, Cmd.none)
 
         "d" ->
-          ( { model | uiMode = Painting, selectedNotes = Set.empty}, Cmd.none)
+          ( { model | uiMode = Painting Adding, selectedNotes = Set.empty}, Cmd.none)
         
         "Escape" ->
           ( { model | selectedNotes = Set.empty}, Cmd.none)
@@ -407,14 +427,14 @@ modeButton model =
   let
     (paintStyle, moveStyle, copyStyle) =
       case model.uiMode of
-        Painting ->    (primaryButtonAttr, buttonAttr, buttonAttr)
+        Painting _ ->    (primaryButtonAttr, buttonAttr, buttonAttr)
         Selecting Moving _ -> (buttonAttr, primaryButtonAttr, buttonAttr)
         Selecting Copying _ -> (buttonAttr, buttonAttr, primaryButtonAttr)
   in
     row
       [ spacing 20 ]
       [ text "Mode:"
-      , Input.button paintStyle {onPress = Just (SetMode Painting), label = text "Paint"}
+      , Input.button paintStyle {onPress = Just (SetMode (Painting Adding)), label = text "Paint"}
       , Input.button moveStyle {onPress = Just (SetMode (Selecting Moving Nothing)), label = text "Move"}
       , Input.button copyStyle {onPress = Just (SetMode (Selecting Copying Nothing)), label = text "Copy"}
       ]

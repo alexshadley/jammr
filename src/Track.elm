@@ -1,4 +1,4 @@
-module Track exposing (Note, NoteId, NoteInstruction, Track, Voice, Pitch, empty, toList, addNote, addNoteWithId, getNote, getNotes, removeNote, duplicateNotes, update, pitchToString, generateInstructions, generatePitchInst)
+module Track exposing (Note, NoteId, NoteInstruction, Track, Voice, Pitch, Beats, empty, toList, addNote, addNoteWithId, getNote, getNotes, removeNote, duplicateNotes, update, pitchToString, generateInstructions, generatePitchInst)
 
 import Dict exposing (Dict)
 import Process
@@ -7,6 +7,7 @@ import Task
 
 type alias Voice = Int
 type alias Pitch = Int
+type alias Beats = Float
 
 
 a4Frq = 440
@@ -15,8 +16,8 @@ a4Frq = 440
 -}
 type alias NoteInstruction =
   { pitch : String
-  , start : Float
-  , duration : Float
+  , start : Beats
+  , duration : Beats
   , voice : Voice
   }
 

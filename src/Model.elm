@@ -1,4 +1,4 @@
-module Model exposing (Model, InputParams, CurrentNote, BoxSelection, UIMode(..), SelectingMode(..))
+module Model exposing (Model, InputParams, CurrentNote, BoxSelection, UIMode(..), DrawingMode(..), SelectingMode(..))
 
 import Dict exposing (Dict)
 import Set exposing (Set)
@@ -18,8 +18,10 @@ type alias InputParams =
   }
 
 -- TODO: refactor mode to include more mode-specific state
+type DrawingMode = Adding | AdjustingStart NoteId | AdjustingEnd NoteId
 type SelectingMode = Moving | Copying
-type UIMode = Painting | Selecting SelectingMode (Maybe {start: (Float, Float), end: (Float, Float)})
+-- TODO: change painting into drawing
+type UIMode = Painting DrawingMode | Selecting SelectingMode (Maybe {start: (Float, Float), end: (Float, Float)})
 
 type alias CurrentNote =
   { voice         : Voice
