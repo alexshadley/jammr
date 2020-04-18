@@ -16,7 +16,7 @@ type UIMode = Painting DrawingMode | Selecting SelectingMode (Maybe {start: (Flo
 type alias CurrentNote =
   { voice         : Voice
   , pitch         : Pitch
-  , x             : Float
+  , start         : Beats
   }
 
 type alias BoxSelection =
@@ -34,9 +34,7 @@ type alias Model =
   , lastNoteBeats : Float
   , currentSelection : Maybe BoxSelection
   , selectedNotes : Set NoteId
-  -- `Maybe` because the user may not have logged in yet
-  -- TODO: make not maybe
-  , currentUser : Maybe User
+  , currentUser : User
   , users : Dict String User
   , usernameInput : String
   -- the beat that playback is currently on, if track is playing

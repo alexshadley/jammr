@@ -83,7 +83,7 @@ initModel =
   , currentSelection = Nothing
   , selectedNotes = Set.empty
 
-  , currentUser = Nothing
+  , currentUser = {name="", color=(0,0,0)}
   , users = Dict.empty
   , usernameInput = ""
   , playbackBeat = Nothing
@@ -131,7 +131,12 @@ update msg model =
       ( {model | usernameInput = new}, Cmd.none)
     
     SubmitUser ->
-      ( model, addUser {name = model.usernameInput} )
+      case model.usernameInput of
+        "" ->
+          ( model, Cmd.none )
+
+        _ ->
+          ( model, addUser {name = model.usernameInput} )
 
     PlayTrack ->
       ( { model | playbackBeat = Just 0.0 }, playNotes (generateInstructions model) )
@@ -173,53 +178,43 @@ update msg model =
     RemoveNote id ->
       ( { model | track = Track.removeNote id model.track}, removeNotes {notes = [id]} )
     
-    StartDrawing voice pitch x ->
+    StartDrawing voice pitch start ->
       ( { model | 
           currentNote = Just 
             { voice = voice
             , pitch = pitch
-            , x = x
+            , start = start
             }
         }
       , playNotes [ generatePitchInst voice pitch ]
       )
     
-    MoveDrawing xCur ->
+    MoveDrawing start ->
       let
         newNote =
-          Maybe.map (\cn -> { cn | x = xCur }) model.currentNote
+          Maybe.map (\cn -> { cn | start = start }) model.currentNote
       in
         ( { model | currentNote = newNote }
         , Cmd.none)
     
-    EndDrawing x ->
-      let
-        -- TODO: remove this pattern in favor of calculating in the piano roll
-        drawingParameters =
-          model.currentNote |> Maybe.andThen (\cn ->
-            List.filter (\r -> r.voice == cn.voice) model.pianoRolls |> List.head |> Maybe.andThen (\p ->
-            Just (cn, p)
-            ))
+    EndDrawing start ->
+      case model.currentNote of
+        Just note ->
+          let
+            newNote = 
+              { pitch = note.pitch
+              , start = start
+              , duration = model.lastNoteBeats
+              , user = model.currentUser.name
+              , voice = note.voice }
 
-      in
-        case drawingParameters of
-          Just (note, params) ->
-            let
-              newNote = 
-                { pitch = note.pitch
-                -- TODO: move this work into view where message is generated
-                , start = PianoRoll.calcBeats params x
-                , duration = model.lastNoteBeats
-                , user = Maybe.withDefault "" <| Maybe.map .name model.currentUser
-                , voice = note.voice }
-
-              (newTrack, (newId, _)) = Track.addNote newNote model.track
-            in
-              ( { model | currentNote = Nothing, track = newTrack }
-              , addNote {id = newId, pitch = newNote.pitch, start = newNote.start, duration = newNote.duration, user = newNote.user, voice = newNote.voice} )
-          
-          Nothing ->
-            ( model, Cmd.none)
+            (newTrack, (newId, _)) = Track.addNote newNote model.track
+          in
+            ( { model | currentNote = Nothing, track = newTrack }
+            , addNote {id = newId, pitch = newNote.pitch, start = newNote.start, duration = newNote.duration, user = newNote.user, voice = newNote.voice} )
+        
+        Nothing ->
+          ( model, Cmd.none)
 
     StartNoteStartAdjust id beats ->
       ( { model | uiMode = Painting (AdjustingStart id beats) }, Cmd.none )
@@ -454,8 +449,13 @@ update msg model =
       in
         ({ model | users = userDict }, Cmd.none)
     
-    UserRegisteredFromServer user ->
-      ({ model | currentUser = user}, Cmd.none)
+    UserRegisteredFromServer result ->
+      case result of
+        Just user ->
+          ({ model | currentUser = user}, Cmd.none)
+        
+        Nothing ->
+          (model, Cmd.none)
 
 
 ---- VIEW ----
@@ -466,9 +466,9 @@ view : Model -> Html Msg
 view model =
   let
     overlay =
-      case model.currentUser of
-        Just user -> []
-        Nothing -> [ inFront (loginOverlay model) ]
+      case model.currentUser.name of
+        "" -> [ inFront (loginOverlay model) ]
+        _  -> []
   in
     layout [] <| 
       el
@@ -650,13 +650,7 @@ loginOverlay model =
 usersWidget : Model -> Element Msg
 usersWidget model =
   let
-    youRow = case model.currentUser of
-      Just user -> [userRow user]
-      Nothing   -> []
-
-    others = case model.currentUser of
-      Just user -> model.users |> Dict.toList |> List.map Tuple.second |> List.filter (\o -> o.name /= user.name)
-      Nothing   -> model.users |> Dict.toList |> List.map Tuple.second
+    others = model.users |> Dict.toList |> List.map Tuple.second |> List.filter (\o -> o.name /= model.currentUser.name)
     
     othersRows = List.map userRow others
   in
@@ -667,7 +661,7 @@ usersWidget model =
       , spacing 10
       , paddingXY 0 10
       ]
-      ( youRow ++
+      ( [ userRow model.currentUser ] ++
         [ row 
             [ centerX
             , width (px 100)

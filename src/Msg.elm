@@ -23,9 +23,9 @@ type Msg
     | ToggleMuted Int
 
     | RemoveNote NoteId
-    | StartDrawing Voice Pitch Float
-    | MoveDrawing Float
-    | EndDrawing Float
+    | StartDrawing Voice Pitch Beats
+    | MoveDrawing Beats
+    | EndDrawing Beats
     | StartNoteEndAdjust NoteId Beats
     | MoveNoteEndAdjust NoteId Beats
     | EndNoteEndAdjust NoteId Beats

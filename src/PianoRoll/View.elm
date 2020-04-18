@@ -144,10 +144,13 @@ baseOverlay model params =
           ]
         
         Painting Adding ->
-          [ onDown (\(x, y) -> StartDrawing params.voice (calcPitch params y) x )
-          , onMove (\(x, _) -> MoveDrawing x )
-          , onUp (\(x, _) -> EndDrawing x )
-          ]
+          let
+            noteStart xPos = (calcBeats params xPos) - ( toFloat ((round (model.lastNoteBeats * subdivisions)) // 2) / subdivisions )
+          in
+            [ onDown (\(x, y) -> StartDrawing params.voice (calcPitch params y) (noteStart x) )
+            , onMove (\(x, _) -> MoveDrawing (noteStart x) )
+            , onUp (\(x, _) -> EndDrawing (noteStart x) )
+            ]
 
         Painting (AdjustingStart id _) ->
           [ onMove (\(x, _) -> MoveNoteStartAdjust id (calcBeats params x) )
@@ -292,17 +295,16 @@ currentNote model params =
       case voice == params.voice of
         True ->
           let
-            (start, duration) = (calcBeats params note.x, model.lastNoteBeats)
-            xVal = start * cellWidth
+            xVal = note.start * cellWidth
             yVal = toFloat (params.topPitch - pitch) * params.laneHeight
-            widthVal = duration * cellWidth
+            widthVal = model.lastNoteBeats * cellWidth
           in
             rect 
               ( [ x (String.fromFloat xVal)
                 , y (String.fromFloat yVal)
                 , width (String.fromFloat widthVal)
                 , height (String.fromFloat params.laneHeight)
-                ] ++ noteStyling model model.currentUser Nothing
+                ] ++ noteStyling model (Just model.currentUser) Nothing
               ) []
         
         False ->
