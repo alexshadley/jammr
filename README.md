@@ -1,6 +1,6 @@
 # Jammr
 
-Make music with your pals in real time!
+Make music with your pals in real time! http://alexshadley.com/jammr
 
 ## Getting started
 
