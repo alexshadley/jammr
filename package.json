@@ -59,7 +59,7 @@
   },
   "dependencies": {
     "elm-canvas": "^2.2.3",
-    "socket.io": "^2.3.0",
+    "socket.io": "^2.5.0",
     "socket.io-client": "^2.3.0",
     "tone": "^13.8.25"
   }
